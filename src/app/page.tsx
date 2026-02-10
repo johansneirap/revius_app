@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import Logo from '@/components/Logo'
 
 export default function Home() {
   return (
@@ -25,12 +26,7 @@ function Header() {
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-8 px-4">
         <div className="flex flex-shrink-0 items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-            <span className="material-icons text-white">rate_review</span>
-          </div>
-          <span className="text-xl font-bold tracking-tight">
-            Revius<span className="text-primary">.cl</span>
-          </span>
+          <Logo />
         </div>
         <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
           <Link href="#" className="border-b-2 border-primary py-5 text-primary">
@@ -437,14 +433,7 @@ function Footer() {
         <div className="mb-12 grid grid-cols-2 gap-8 md:grid-cols-4 lg:grid-cols-5">
           <div className="col-span-2">
             <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <span className="material-icons text-lg text-white">
-                  rate_review
-                </span>
-              </div>
-              <span className="text-lg font-bold">
-                Revius<span className="text-primary">.cl</span>
-              </span>
+              <Logo size="sm" />
             </div>
             <p className="mb-6 max-w-xs text-sm text-slate-500">
               Empoderando a los consumidores chilenos con datos objetivos y

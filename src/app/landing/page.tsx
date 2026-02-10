@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import Logo from '@/components/Logo'
 
 export default function LandingPage() {
     return (
@@ -19,9 +20,7 @@ function NavBar() {
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div className="flex h-16 items-center justify-between">
                     <div className="flex items-center gap-8">
-                        <div className="text-2xl font-bold tracking-tight text-primary">
-                            REVIUS<span className="text-slate-400">.cl</span>
-                        </div>
+                        <Logo />
                         <div className="hidden items-center space-x-6 text-sm font-medium text-slate-600 md:flex dark:text-slate-300">
                             <Link href="#" className="transition-colors hover:text-primary">
                                 Cómo funciona
@@ -308,8 +307,8 @@ function Footer() {
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div className="grid grid-cols-1 gap-12 md:grid-cols-4">
                     <div className="col-span-1 md:col-span-2">
-                        <div className="mb-6 text-2xl font-bold tracking-tight text-primary">
-                            REVIUS<span className="text-slate-400">.cl</span>
+                        <div className="mb-6">
+                            <Logo />
                         </div>
                         <p className="mb-6 max-w-sm text-sm leading-relaxed text-slate-500 dark:text-slate-400">
                             La primera comunidad colaborativa de compras en Chile. Ayudamos a
