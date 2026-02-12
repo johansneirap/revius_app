@@ -1,3 +1,5 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
 import Logo from '@/components/Logo'
@@ -68,12 +70,20 @@ function Header() {
           />
         </div>
         <div className="flex items-center gap-4">
-          <button className="text-sm font-medium text-slate-600 hover:text-primary dark:text-slate-400">
+          <button
+            onClick={() => document.documentElement.classList.toggle('dark')}
+            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-600 dark:text-yellow-400"
+          >
+            <span className="material-icons dark:hidden">dark_mode</span>
+            <span className="material-icons hidden dark:block">light_mode</span>
+          </button>
+          <Link href="/login" className="hidden text-sm font-medium text-slate-600 hover:text-primary dark:text-slate-400 sm:block">
             Ingresar
-          </button>
-          <button className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700">
-            Panel de Expertos
-          </button>
+          </Link>
+          <Link href="/escribir-resena" className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-blue-600 hover:-translate-y-0.5 active:translate-y-0 active:scale-95">
+            <span className="material-icons text-sm">edit</span>
+            Escribir Reseña
+          </Link>
         </div>
       </div>
     </header>
