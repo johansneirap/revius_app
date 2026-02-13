@@ -1,0 +1,141 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums
+enum Role {
+  USER
+  ADMIN
+  STORE_OWNER
+}
+
+enum StockStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  PRE_ORDER
+}
+
+// Core Models
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?   // Avatar URL
+  role          Role      @default(USER)
+  bio           String?   // User biography
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  reviews       Review[]
+  managedStore  Store?    // If user is a store owner
+  favorites     Product[] @relation("UserFavorites")
+  following     User[]    @relation("UserFollows")
+  followers     User[]    @relation("UserFollows")
+
+  @@map("users")
+}
+
+model Store {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  logo        String?
+  description String?
+  category    String?
+  verified    Boolean  @default(false)
+  websiteUrl  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Stats (Denormalized for performance or computed)
+  rating      Float    @default(0)
+  reviewCount Int      @default(0)
+
+  // Reputation Metrics (JSON for flexibility)
+  reputation  Json? 
+
+  // Relations
+  ownerId     String?  @unique
+  owner       User?    @relation(fields: [ownerId], references: [id])
+  products    ProductStorePrice[]
+  reviews     Review[] // Reviews received for service
+
+  @@map("stores")
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  image       String?
+  category    String?
+  specs       Json?    // Flexible JSON for technical specifications
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Stats
+  rating      Float    @default(0)
+  reviewCount Int      @default(0)
+
+  // Relations
+  prices      ProductStorePrice[]
+  reviews     Review[]
+  favoritedBy User[]   @relation("UserFavorites")
+
+  @@map("products")
+}
+
+model ProductStorePrice {
+  id          String      @id @default(cuid())
+  price       Float
+  oldPrice    Float?
+  currency    String      @default("CLP")
+  url         String      // External affiliate link
+  stockStatus StockStatus @default(IN_STOCK)
+  lastChecked DateTime    @default(now())
+  
+  // Relations
+  productId   String
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  storeId     String
+  store       Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, storeId]) // A store can only have one active price entry per product
+  @@map("product_store_prices")
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  rating      Int      // 1-5
+  content     String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Detailed ratings (structured JSON)
+  details     Json?    
+
+  // Usage Stats
+  likes       Int      @default(0)
+
+  // Relations
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+  storeId     String?  // Optional: Review for store service specifically
+  store       Store?   @relation(fields: [storeId], references: [id])
+
+  @@map("reviews")
+}
