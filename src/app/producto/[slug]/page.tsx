@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Logo from '@/components/Logo'
 import ReviewList from '@/components/reviews/ReviewList'
 import DarkModeToggle from '@/components/ui/DarkModeToggle'
+import NavUser from '@/components/ui/NavUser'
 import { createClient } from '@/lib/supabase/server'
 import type { ProductReviewFull } from '@/components/reviews/ReviewCard'
 
@@ -105,13 +106,7 @@ const [{ data: reviewsRaw }, { data: sourcesRaw }] = await Promise.all([
                 <span className="material-icons">notifications</span>
                 <span className="bg-primary absolute top-2 right-2 h-2 w-2 rounded-full border-2 border-white dark:border-slate-900"></span>
               </button>
-              <Link
-                href="/login"
-                className="bg-primary shadow-primary/20 hover:bg-primary/90 flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-lg transition-all"
-              >
-                <span className="material-icons text-sm">person</span>
-                Mi Cuenta
-              </Link>
+              <NavUser />
             </div>
           </div>
         </div>

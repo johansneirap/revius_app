@@ -1,21 +1,140 @@
-'use client'
-
 import Image from 'next/image'
 import Link from 'next/link'
 import Logo from '@/components/Logo'
+import DarkModeToggle from '@/components/ui/DarkModeToggle'
+import NavUser from '@/components/ui/NavUser'
+import { createClient } from '@/lib/supabase/server'
 
-export default function Home() {
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+type Product = {
+  id: string
+  slug: string
+  name: string
+  brand: string | null
+  image_url: string | null
+  badge: string | null
+  avg_score: number | null
+  review_count: number | null
+}
+
+type HomeReview = {
+  author_name: string | null
+  author_avatar: string | null
+  author_level: string | null
+  rating: number
+  body: string
+  credibility_score: number
+  product_id: string
+}
+
+type Store = {
+  id: string
+  name: string
+  slug: string
+  avg_shipping_speed: number | null
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const BADGE_COLORS: Record<string, string> = {
+  alta_demanda: 'bg-red-500',
+  eleccion_editor: 'bg-primary',
+  mejor_valor: 'bg-orange-500',
+  exclusivo: 'bg-purple-500',
+  nuevo: 'bg-emerald-500',
+}
+
+const BADGE_LABELS: Record<string, string> = {
+  alta_demanda: 'Alta Demanda',
+  eleccion_editor: 'Elección Editor',
+  mejor_valor: 'Mejor Valor',
+  exclusivo: 'Exclusivo',
+  nuevo: 'Nuevo',
+}
+
+function badgeColor(badge: string): string {
+  return BADGE_COLORS[badge] ?? 'bg-primary'
+}
+
+function badgeLabel(badge: string): string {
+  return BADGE_LABELS[badge] ?? badge
+}
+
+function shippingStatus(speed: number | null): { label: string; color: string } {
+  if (speed === null) return { label: 'Verificada', color: 'text-primary' }
+  if (speed >= 4.5) return { label: 'Despacho Rápido', color: 'text-green-600' }
+  if (speed >= 3.5) return { label: 'Despacho Normal', color: 'text-slate-500' }
+  return { label: 'Verificada', color: 'text-primary' }
+}
+
+function credibilityBadge(score: number): string {
+  if (score >= 0.8) return 'Reseña de Alta Confiabilidad'
+  if (score >= 0.6) return 'Reseña Verificada'
+  return 'Reseña Destacada'
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default async function Home() {
+  const supabase = await createClient()
+
+  const { data: productsRaw } = await supabase
+    .from('products')
+    .select('id, slug, name, brand, image_url, badge, avg_score, review_count')
+    .not('badge', 'is', null)
+    .order('review_count', { ascending: false })
+    .limit(3)
+
+  const [{ data: reviewsRaw }, { data: storesRaw }] =
+    await Promise.all([
+      supabase
+        .from('product_reviews_full')
+        .select('author_name, author_avatar, author_level, rating, body, credibility_score, product_id')
+        .not('credibility_score', 'is', null)
+        .order('credibility_score', { ascending: false })
+        .limit(6),
+      supabase
+        .from('stores')
+        .select('id, name, slug, avg_shipping_speed')
+        .eq('is_verified', true)
+        .limit(3),
+    ])
+
+  const products = (productsRaw ?? []) as Product[]
+  const reviews = (reviewsRaw ?? []) as HomeReview[]
+  const stores = (storesRaw ?? []) as Store[]
+
+  // Precio mínimo por producto (una sola query para los 3)
+  const productIds = products.map((p) => p.id)
+  const minPriceMap: Record<string, number> = {}
+
+  if (productIds.length > 0) {
+    const { data: sourcesRaw } = await supabase
+      .from('product_sources')
+      .select('product_id, price')
+      .in('product_id', productIds)
+      .eq('in_stock', true)
+      .order('price', { ascending: true })
+
+    for (const src of (sourcesRaw ?? []) as { product_id: string; price: number }[]) {
+      if (!minPriceMap[src.product_id]) {
+        minPriceMap[src.product_id] = src.price
+      }
+    }
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="mx-auto max-w-7xl px-4 py-8">
         <div className="flex flex-col gap-8 lg:flex-row">
           <div className="flex-grow">
-            <HeroSection />
+            <HeroSection products={products} minPriceMap={minPriceMap} />
             <PromoBanner />
-            <ReviewsSection />
+            <ReviewsSection reviews={reviews} />
           </div>
-          <Sidebar />
+          <Sidebar stores={stores} />
         </div>
       </main>
       <Footer />
@@ -23,7 +142,9 @@ export default function Home() {
   )
 }
 
-function Header() {
+// ─── Header ───────────────────────────────────────────────────────────────────
+
+async function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-8 px-4">
@@ -31,34 +152,19 @@ function Header() {
           <Logo />
         </div>
         <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
-          <Link
-            href="#"
-            className="border-primary text-primary border-b-2 py-5"
-          >
+          <Link href="#" className="border-primary text-primary border-b-2 py-5">
             Inicio
           </Link>
-          <Link
-            href="#"
-            className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400"
-          >
+          <Link href="#" className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400">
             Tecnología
           </Link>
-          <Link
-            href="#"
-            className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400"
-          >
+          <Link href="#" className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400">
             Estilo de Vida
           </Link>
-          <Link
-            href="#"
-            className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400"
-          >
+          <Link href="#" className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400">
             Hogar
           </Link>
-          <Link
-            href="#"
-            className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400"
-          >
+          <Link href="#" className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400">
             Lo Mejor
           </Link>
         </nav>
@@ -73,19 +179,8 @@ function Header() {
           />
         </div>
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => document.documentElement.classList.toggle('dark')}
-            className="rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 dark:text-yellow-400 dark:hover:bg-slate-800"
-          >
-            <span className="material-icons dark:hidden">dark_mode</span>
-            <span className="material-icons hidden dark:block">light_mode</span>
-          </button>
-          <Link
-            href="/login"
-            className="hover:text-primary hidden text-sm font-medium text-slate-600 sm:block dark:text-slate-400"
-          >
-            Ingresar
-          </Link>
+          <DarkModeToggle />
+          <NavUser />
           <Link
             href="/escribir-resena"
             className="bg-primary shadow-primary/20 flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-blue-600 active:translate-y-0 active:scale-95"
@@ -99,7 +194,15 @@ function Header() {
   )
 }
 
-function HeroSection() {
+// ─── HeroSection ──────────────────────────────────────────────────────────────
+
+function HeroSection({
+  products,
+  minPriceMap,
+}: {
+  products: Product[]
+  minPriceMap: Record<string, number>
+}) {
   return (
     <section className="mb-12">
       <div className="mb-6 flex items-center justify-between">
@@ -115,93 +218,96 @@ function HeroSection() {
           <span className="material-icons text-sm">arrow_forward</span>
         </Link>
       </div>
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-        <ProductCard
-          title="Aura Pro Wireless Gen 4"
-          rating="4.9"
-          description="Cancelación de ruido líder en la industria con firma de sonido ultra-premium y 40 horas de batería."
-          price="$349.990"
-          image="https://lh3.googleusercontent.com/aida-public/AB6AXuDFbRlYmHsUxnbrQZ4T395vSHOiK9dy1gQKWPrq8EQ9vSb6qeZPRjh5dmsjg_6nR3SwXjGeiT8HbjKlV89eN7Zu9A8JPKh9Sra3-revrx5oyvwjgrIw3w9GFTI0fvrjN83qicv5MHZCqF_ilzUCiq0qrO3ZEfQ8OyITbpZR7EZ_Os3Uuvt-onHqPqlBTM4mUxJrjVCTEcWPNNauTa8QwEwOQXD7LdJ_iWVaynt_kUjce3AYHgDCcTlHlpFuchwjTgpb1PYChxECfBcP"
-          badge="Alta Demanda"
-          badgeColor="bg-red-500"
-        />
-        <ProductCard
-          title="Stellar Chronos White"
-          rating="4.7"
-          description="Diseño minimalista con ingeniería suiza de precisión. El compañero diario perfecto para profesionales."
-          price="$189.990"
-          image="https://lh3.googleusercontent.com/aida-public/AB6AXuB4slPBzaJWCmlEe4SWrkGQyljxppAJuowJLpbzUHJpEorYCuw2ZZTOl3_9MmZESvraU_TOoJhzldGgR1JTqW_TzVbDGSuCoRB2BNSqhRt_yG9gSyIe4jBBpTJoOGa823atkiqbzSoS-tbgK1FNXe9nCYSz8R8CuK7hpL-k3l9IAqUcLytaKLEg5BQQsqLDP9cV5ZlR-hgA9r8R14Ja1umu0LgIDk0NqpXjUPg_FESu_5B47nnt5n9j4LcSU1Mbimd2wjYADTM56csY"
-          badge="Elección Editor"
-          badgeColor="bg-primary"
-        />
-        <ProductCard
-          title="ZenithBook Ultra 14"
-          rating="4.8"
-          description="El notebook más delgado en su clase con el último procesador de alto rendimiento y pantalla OLED de 120Hz."
-          price="$1.299.990"
-          image="https://lh3.googleusercontent.com/aida-public/AB6AXuBJ6auq-aWNwOUXnA_Y4Opw0Lzt-b1Bl31RuDsoa8ykp48xCOoYfTZQkS_bViYA5vjZiB0aJR04EHjXeAyGW4ght1eVMFmxV2DR6bzQlc_AounrKGd-VuBo4TuSuU0eGfMISN0lMIBaXc3zrqNgwVgklxt8a7NXzN97WAaS9N5qQ1KqSrbBeRDY9WwcCZRgzyL7QM8j1BekpPJo_ariVC7uH2IkRd0m8xMV2jGJFvMb3b53td-FMN5ohwwfETXUPCm3uyZTzTn6guwV"
-          badge="Mejor Valor"
-          badgeColor="bg-orange-500"
-        />
-      </div>
+      {products.length === 0 ? (
+        <p className="text-sm text-slate-400">No hay productos destacados aún.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {products.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              minPrice={minPriceMap[product.id] ?? null}
+            />
+          ))}
+        </div>
+      )}
     </section>
   )
 }
 
 function ProductCard({
-  title,
-  rating,
-  description,
-  price,
-  image,
-  badge,
-  badgeColor,
+  product,
+  minPrice,
 }: {
-  title: string
-  rating: string
-  description: string
-  price: string
-  image: string
-  badge: string
-  badgeColor: string
+  product: Product
+  minPrice: number | null
 }) {
+  const rating = product.avg_score ?? 0
+  const badge = product.badge ?? ''
+  const color = badgeColor(badge)
+  const label = badgeLabel(badge)
+
   return (
-    <div className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition-shadow hover:shadow-lg dark:border-slate-800 dark:bg-slate-900">
+    <Link
+      href={`/producto/${product.slug}`}
+      className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition-shadow hover:shadow-lg dark:border-slate-800 dark:bg-slate-900"
+    >
       <div className="relative h-48 bg-slate-100 dark:bg-slate-800">
-        <Image src={image} alt={title} fill className="object-cover" />
-        <div
-          className={`absolute top-3 left-3 rounded px-2 py-1 text-[10px] font-bold tracking-wider text-white uppercase ${badgeColor}`}
-        >
-          {badge}
-        </div>
+        {product.image_url ? (
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className="absolute inset-0 h-full w-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="material-icons text-4xl text-slate-300 dark:text-slate-600">
+              image_not_supported
+            </span>
+          </div>
+        )}
+        {badge && (
+          <div
+            className={`absolute top-3 left-3 rounded px-2 py-1 text-[10px] font-bold tracking-wider text-white uppercase ${color}`}
+          >
+            {label}
+          </div>
+        )}
       </div>
       <div className="p-5">
         <div className="mb-2 flex items-start justify-between">
           <h3 className="group-hover:text-primary text-lg font-bold transition-colors">
-            {title}
+            {product.name}
           </h3>
           <span className="flex items-center rounded bg-green-100 px-2 py-1 text-xs font-bold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-            {rating} ★
+            {rating > 0 ? rating.toFixed(1) : '—'} ★
           </span>
         </div>
         <p className="mb-4 line-clamp-2 text-sm text-slate-500">
-          {description}
+          {product.brand ?? ''}
         </p>
         <div className="flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase">
               Mejor Precio
             </p>
-            <p className="text-primary text-xl font-bold">{price}</p>
+            <p className="text-primary text-xl font-bold">
+              {minPrice !== null
+                ? `$${minPrice.toLocaleString('es-CL')}`
+                : 'Sin precio'}
+            </p>
           </div>
-          <button className="bg-primary rounded px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700">
+          <span className="bg-primary rounded px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700">
             Ver Ofertas
-          </button>
+          </span>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
+
+// ─── PromoBanner ──────────────────────────────────────────────────────────────
 
 function PromoBanner() {
   return (
@@ -227,7 +333,9 @@ function PromoBanner() {
   )
 }
 
-function ReviewsSection() {
+// ─── ReviewsSection ───────────────────────────────────────────────────────────
+
+function ReviewsSection({ reviews }: { reviews: HomeReview[] }) {
   return (
     <section>
       <div className="mb-8 flex items-center justify-between">
@@ -246,54 +354,50 @@ function ReviewsSection() {
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        <ReviewCard
-          name="César García"
-          role="Editor Senior • ReviewChile TV"
-          rating={5.0}
-          quote='"Los Aura Pro Wireless redefinieron mis expectativas de cancelación activa. El sonido es increíblemente amplio. Si viajas en el Metro, son indispensables."'
-          image="https://lh3.googleusercontent.com/aida-public/AB6AXuC4U1AiR-hbBDLdRvkn5wYQx8nMKOqtbMmt56bOBvAGJionzKNWUFVAFx7JS2kEH6UGptDzv7eqdIWg1FOHokF3s2jAYjkfqVDE43gOWGZ0KZ_eVncIJG8EheG5d-SP-1eGP7Gr_47m0SkibLltlb1zCt4J1-PUYC6EHCnKu4ttK3-Ip8Uqfz95UklWU--DUZSPhORhz-4hgwIpPnLKv0cuI98wj4RNxkOnkhqezItezPdt7vSTDzJRwpdAnCqFc9ujzwCJtrdBFYko"
-          badge="Reseña de Experto Verificada"
-        />
-        <ReviewCard
-          name="Valentina Lagos"
-          role="Lifestyle Specialist • 1.2M Seguidores"
-          rating={4.0}
-          quote='"Llevo dos semanas con el Stellar Chronos. Es sorprendentemente liviano y combina con todos mis outfits. Se siente mucho más caro de lo que es en realidad."'
-          image="https://lh3.googleusercontent.com/aida-public/AB6AXuBUWvxnSMZfrquGNkXcJY0KWPL2-EduUn2siun2tNTlc7H75PtH21CeaD8cK84XT_OZfsPn3sz5D18hDCJe0hfKWilGP7XLvDHOHdFnU94pNOodIfT9x_G5FYOaqxFjy0lOAj5rRbzC8b3dBYssB7JUdIHGFdXigJ_RumORHhqp9zlj06tDRB9EZ9sVg66yXB76m2zzjBj3t_QtvBPMp-91rYTxhYRQzxS3VsNHno-6O69S_jifvzLBkUwPSFT8KU1RyypAbqgAhTQg"
-          badge="Destacado de Comunidad"
-        />
-      </div>
+      {reviews.length === 0 ? (
+        <p className="text-sm text-slate-400">No hay reseñas destacadas aún.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          {reviews.map((review, i) => (
+            <HomeReviewCard key={i} review={review} />
+          ))}
+        </div>
+      )}
     </section>
   )
 }
 
-function ReviewCard({
-  name,
-  role,
-  rating,
-  quote,
-  image,
-  badge,
-}: {
-  name: string
-  role: string
-  rating: number
-  quote: string
-  image: string
-  badge: string
-}) {
+function HomeReviewCard({ review }: { review: HomeReview }) {
+  const name = review.author_name ?? 'Usuario Revius'
+  const badge = credibilityBadge(review.credibility_score)
+
+  const levelLabel: Record<string, string> = {
+    experto: 'Revisor Experto',
+    premium: 'Revisor Premium',
+    oro: 'Revisor Avanzado',
+    plata: 'Revisor de Comunidad',
+    bronce: 'Revisor de Comunidad',
+  }
+  const role = review.author_level ? (levelLabel[review.author_level] ?? 'Revisor Verificado') : 'Revisor Verificado'
+
   return (
     <div className="relative rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-4 flex items-start gap-4">
         <div className="relative">
-          <Image
-            src={image}
-            alt={name}
-            width={56}
-            height={56}
-            className="rounded-full object-cover"
-          />
+          {review.author_avatar ? (
+            <img
+              src={review.author_avatar}
+              alt={name}
+              width={56}
+              height={56}
+              className="rounded-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-200 text-sm font-bold text-slate-500 dark:bg-slate-700">
+              {name.slice(0, 2).toUpperCase()}
+            </div>
+          )}
           <span className="material-icons text-primary absolute -right-1 -bottom-1 rounded-full bg-white text-lg dark:bg-slate-900">
             verified
           </span>
@@ -305,24 +409,24 @@ function ReviewCard({
             {[...Array(5)].map((_, i) => (
               <span
                 key={i}
-                className={`material-icons text-xs ${i < Math.floor(rating) ? 'text-yellow-400' : 'text-slate-300'}`}
+                className={`material-icons text-xs ${i < Math.floor(review.rating) ? 'text-yellow-400' : 'text-slate-300'}`}
               >
                 star
               </span>
             ))}
-            <span className="ml-2 text-xs font-bold">{rating.toFixed(1)}</span>
+            <span className="ml-2 text-xs font-bold">{review.rating.toFixed(1)}</span>
           </div>
         </div>
       </div>
       <blockquote className="mb-4 text-slate-700 italic dark:text-slate-300">
-        {quote}
+        &ldquo;{review.body}&rdquo;
       </blockquote>
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
           {badge}
         </span>
         <Link
-          href="#"
+          href={`/producto/${review.product_id}`}
           className="text-primary text-xs font-bold hover:underline"
         >
           Leer Reseña Completa
@@ -332,9 +436,12 @@ function ReviewCard({
   )
 }
 
-function Sidebar() {
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
+
+function Sidebar({ stores }: { stores: Store[] }) {
   return (
     <aside className="w-full flex-shrink-0 space-y-8 lg:w-80">
+      {/* Partner banner (estático) */}
       <div className="rounded-xl border border-slate-200 bg-slate-100 p-4 dark:border-slate-800 dark:bg-slate-800/50">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
@@ -364,30 +471,32 @@ function Sidebar() {
         </button>
       </div>
 
+      {/* Tiendas verificadas */}
       <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
         <h3 className="mb-4 font-bold">Compara Precios en Retail</h3>
         <div className="space-y-4">
-          <RetailRow
-            name="Falabella"
-            code="FAL"
-            status="Despacho Rápido"
-            statusColor="text-green-600"
-          />
-          <RetailRow
-            name="Paris"
-            code="PAR"
-            status="Retiro en Tienda"
-            statusColor="text-slate-500"
-          />
-          <RetailRow
-            name="Ripley"
-            code="RIP"
-            status="Mejor Precio"
-            statusColor="text-primary"
-          />
+          {stores.length === 0 ? (
+            <p className="text-xs text-slate-400">Sin tiendas verificadas aún.</p>
+          ) : (
+            stores.map((store) => {
+              const code = store.name.slice(0, 3).toUpperCase()
+              const { label, color } = shippingStatus(store.avg_shipping_speed)
+              return (
+                <RetailRow
+                  key={store.id}
+                  name={store.name}
+                  code={code}
+                  status={label}
+                  statusColor={color}
+                  href={`/tienda/${store.slug}`}
+                />
+              )
+            })
+          )}
         </div>
       </div>
 
+      {/* Newsletter (estático) */}
       <div className="bg-primary shadow-primary/20 rounded-xl p-6 text-white shadow-xl">
         <h3 className="mb-2 text-lg font-bold">El Pulso Semanal</h3>
         <p className="mb-4 text-sm text-blue-100">
@@ -409,6 +518,7 @@ function Sidebar() {
         </p>
       </div>
 
+      {/* Sponsored (estático) */}
       <div className="rounded-xl border border-slate-200 bg-slate-100 p-4 dark:border-slate-800 dark:bg-slate-800/50">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
@@ -447,14 +557,16 @@ function RetailRow({
   code,
   status,
   statusColor,
+  href,
 }: {
   name: string
   code: string
   status: string
   statusColor: string
+  href: string
 }) {
   return (
-    <div className="flex items-center justify-between">
+    <Link href={href} className="flex items-center justify-between hover:opacity-80 transition-opacity">
       <div className="flex items-center gap-3">
         <div className="text-primary flex h-8 w-8 items-center justify-center rounded bg-slate-100 text-[10px] font-bold dark:bg-slate-800">
           {code}
@@ -462,9 +574,11 @@ function RetailRow({
         <span className="text-sm font-medium">{name}</span>
       </div>
       <span className={`text-xs font-bold ${statusColor}`}>{status}</span>
-    </div>
+    </Link>
   )
 }
+
+// ─── Footer ───────────────────────────────────────────────────────────────────
 
 function Footer() {
   return (
@@ -515,7 +629,7 @@ function Footer() {
         </div>
         <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-100 pt-8 md:flex-row dark:border-slate-800">
           <p className="text-xs text-slate-400">
-            © 2024 Revius.cl Media. Todos los derechos reservados.{' '}
+            © 2026 Revius.cl Media. Todos los derechos reservados.{' '}
             <span className="mx-2">|</span> Divulgación: Podemos ganar una
             comisión al hacer clic en enlaces de nuestro sitio.
           </p>
@@ -547,13 +661,7 @@ function SocialIcon({ icon }: { icon: string }) {
   )
 }
 
-function FooterLink({
-  href,
-  children,
-}: {
-  href: string
-  children: React.ReactNode
-}) {
+function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
     <li>
       <Link href={href} className="hover:text-primary transition-colors">

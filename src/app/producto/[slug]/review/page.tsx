@@ -1,31 +1,101 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import Logo from '@/components/Logo'
 import { useParams, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 export default function ReviewPage() {
   const params = useParams()
   const router = useRouter()
+  const slug = params.slug as string
+
+  // Form state
   const [rating, setRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
+  const [title, setTitle] = useState('')
+  const [body, setBody] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Sliders (v2, no se conectan aún)
   const [qualityPrice, setQualityPrice] = useState(4.5)
   const [shippingSafety, setShippingSafety] = useState(5.0)
   const [afterSales, setAfterSales] = useState(3.0)
 
-  // Mock product data (in a real app, this would be fetched based on params.slug)
-  const product = {
-    name: 'SonicPro Ultra X1 - Audífonos Noise Cancelling',
-    image: '/images/headphones.png',
-  }
+  // Product data
+  const [productId, setProductId] = useState<string | null>(null)
+  const [productName, setProductName] = useState('')
+  const [productImageUrl, setProductImageUrl] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('products')
+      .select('id, name, image_url')
+      .eq('slug', slug)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setProductId((data as { id: string; name: string; image_url: string | null }).id)
+          setProductName((data as { id: string; name: string; image_url: string | null }).name)
+          setProductImageUrl((data as { id: string; name: string; image_url: string | null }).image_url)
+        }
+      })
+  }, [slug])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // In a real app, send data to API
-    alert('Reseña publicada con éxito (Simulación)')
-    router.push(`/producto/${params.slug}`)
+    setError(null)
+
+    // Validaciones cliente
+    if (rating === 0) {
+      setError('Selecciona una calificación')
+      return
+    }
+    if (body.trim().length < 50) {
+      setError('La reseña debe tener al menos 50 caracteres')
+      return
+    }
+    if (!productId) {
+      setError('Error al obtener el producto. Recarga la página.')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const res = await fetch('/api/product-reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product_id: productId,
+          rating,
+          title: title.trim() || null,
+          body: body.trim(),
+        }),
+      })
+
+      if (res.status === 201) {
+        router.push(`/producto/${slug}?review=success`)
+        return
+      }
+
+      const data = await res.json() as { error?: string }
+
+      if (res.status === 401) {
+        setError('Debes iniciar sesión para publicar una reseña')
+      } else if (res.status === 400) {
+        setError(data.error ?? 'Datos inválidos')
+      } else {
+        setError('Error al publicar. Intenta nuevamente.')
+      }
+    } catch {
+      setError('Error al publicar. Intenta nuevamente.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -46,22 +116,30 @@ export default function ReviewPage() {
         {/* Product Info Header */}
         <div className="animate-in fade-in slide-in-from-top-4 mb-8 flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm duration-500 dark:border-slate-800 dark:bg-slate-900">
           <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
-            <Image
-              alt={product.name}
-              src={product.image}
-              fill
-              className="object-cover"
-            />
+            {productImageUrl ? (
+              <img
+                src={productImageUrl}
+                alt={productName}
+                className="absolute inset-0 h-full w-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-800">
+                <span className="material-icons text-2xl text-slate-300">image</span>
+              </div>
+            )}
           </div>
           <div>
             <p className="mb-1 text-[10px] font-bold tracking-widest text-slate-500 uppercase">
               Publicando reseña para
             </p>
-            <h1 className="text-lg leading-tight font-bold">{product.name}</h1>
+            <h1 className="text-lg leading-tight font-bold">
+              {productName || '…'}
+            </h1>
           </div>
         </div>
 
-        {/* Progress Indicator (Static for this view but stylized) */}
+        {/* Progress Indicator */}
         <nav className="mb-12 px-2">
           <div className="relative flex items-center justify-between">
             <div className="absolute top-5 left-0 -z-10 h-0.5 w-full bg-slate-200 dark:bg-slate-800"></div>
@@ -94,7 +172,7 @@ export default function ReviewPage() {
                       onMouseLeave={() => setHoverRating(0)}
                       onClick={() => setRating(star)}
                     >
-                      {(hoverRating || rating) >= star ? 'star' : 'star'}
+                      star
                     </button>
                   ))}
                 </div>
@@ -113,7 +191,8 @@ export default function ReviewPage() {
                   className="focus:border-primary focus:ring-primary w-full rounded-xl border-slate-200 px-4 py-3 transition-all outline-none dark:border-slate-800 dark:bg-slate-800/50"
                   placeholder="Ej: Excelente calidad de sonido"
                   type="text"
-                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                 />
               </div>
 
@@ -125,11 +204,11 @@ export default function ReviewPage() {
                   className="focus:border-primary focus:ring-primary w-full resize-none rounded-xl border-slate-200 px-4 py-3 transition-all outline-none dark:border-slate-800 dark:bg-slate-800/50"
                   placeholder="¿Qué es lo que más te gustó? ¿Lo recomendarías?"
                   rows={4}
-                  minLength={20}
-                  required
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
                 ></textarea>
-                <p className="text-right text-[10px] font-bold tracking-tighter text-slate-400 uppercase">
-                  Mínimo 20 caracteres
+                <p className={`text-right text-[10px] font-bold tracking-tighter uppercase ${body.length >= 50 ? 'text-green-500' : 'text-slate-400'}`}>
+                  {body.length} / 50 caracteres mínimos
                 </p>
               </div>
             </div>
@@ -195,17 +274,6 @@ export default function ReviewPage() {
                   Sube fotos del producto
                 </label>
                 <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                  <div className="group relative aspect-square overflow-hidden rounded-xl border-2 border-slate-100 dark:border-slate-800">
-                    <Image
-                      className="h-full w-full object-cover transition-transform group-hover:scale-110"
-                      src={product.image}
-                      fill
-                      alt="Preview"
-                    />
-                    <button className="absolute top-2 right-2 rounded-full bg-rose-500 p-1 text-white shadow-lg transition-colors hover:bg-rose-600">
-                      <span className="material-icons text-xs">close</span>
-                    </button>
-                  </div>
                   <button
                     type="button"
                     className="hover:border-primary hover:bg-primary/5 group flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 transition-all dark:border-slate-800"
@@ -225,19 +293,28 @@ export default function ReviewPage() {
             </div>
           </section>
 
+          {/* Error message */}
+          {error && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+              {error}
+            </div>
+          )}
+
           {/* Form Controls */}
           <div className="flex flex-col gap-4 pt-4 sm:flex-row">
             <button
               type="button"
-              className="w-full rounded-2xl border-2 border-slate-100 py-4 font-bold text-slate-500 transition-all hover:bg-slate-50 active:scale-95 sm:w-1/3 dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800"
+              disabled={loading}
+              className="w-full rounded-2xl border-2 border-slate-100 py-4 font-bold text-slate-500 transition-all hover:bg-slate-50 active:scale-95 sm:w-1/3 dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 disabled:opacity-50"
             >
               Guardar Borrador
             </button>
             <button
               type="submit"
-              className="bg-primary shadow-primary/20 hover:bg-primary/90 w-full transform rounded-2xl py-4 font-bold text-white shadow-xl transition-all hover:-translate-y-1 active:translate-y-0 active:scale-95 sm:w-2/3"
+              disabled={loading}
+              className="bg-primary shadow-primary/20 hover:bg-primary/90 w-full transform rounded-2xl py-4 font-bold text-white shadow-xl transition-all hover:-translate-y-1 active:translate-y-0 active:scale-95 sm:w-2/3 disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
             >
-              Publicar Reseña
+              {loading ? 'Publicando...' : 'Publicar Reseña'}
             </button>
           </div>
         </form>

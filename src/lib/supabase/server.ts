@@ -28,6 +28,7 @@ export async function createClient() {
 }
 
 export async function createServiceClient() {
+  console.log('Service key present:', !!process.env.SUPABASE_SERVICE_ROLE_KEY)
   const cookieStore = await cookies()
 
   return createServerClient(

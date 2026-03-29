@@ -3,13 +3,22 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import Logo from '@/components/Logo'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-export default function LoginPage() {
+function LoginForm() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const next = searchParams.get('next') ?? '/'
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [isDarkMode, setIsDarkMode] = useState(false)
 
   useEffect(() => {
-    // Sync with system or initial state
     if (document.documentElement.classList.contains('dark')) {
       setIsDarkMode(true)
     }
@@ -18,6 +27,41 @@ export default function LoginPage() {
   const toggleDarkMode = () => {
     document.documentElement.classList.toggle('dark')
     setIsDarkMode(!isDarkMode)
+  }
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+
+    const supabase = createClient()
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (authError) {
+      setError('Correo o contraseña incorrectos')
+      setLoading(false)
+      return
+    }
+
+    router.push(next)
+    router.refresh()
+  }
+
+  const handleGoogleLogin = async () => {
+    setError(null)
+    const supabase = createClient()
+    const { error: authError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      },
+    })
+    if (authError) {
+      setError('Error al conectar con Google. Intenta nuevamente.')
+    }
   }
 
   return (
@@ -45,7 +89,6 @@ export default function LoginPage() {
             priority
             className="animate-pulse-slow scale-105 object-cover"
           />
-          {/* Premium Gradient Overlay */}
           <div className="absolute inset-0 bg-[#135bec]/85 mix-blend-multiply transition-opacity duration-700"></div>
           <div className="absolute inset-0 z-10 flex flex-col justify-center bg-gradient-to-br from-[#135bec]/90 via-[#135bec]/80 to-[#0a2f7a]/95 px-20 text-white">
             <div className="mb-16 transform transition-all duration-500 hover:translate-x-2">
@@ -106,9 +149,10 @@ export default function LoginPage() {
             </div>
 
             {/* Social Connect */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <SocialButton
-                provider="Google"
+                provider="Continuar con Google"
+                onClick={handleGoogleLogin}
                 icon={
                   <Image
                     src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2nxWmDjoJiJZJ2clOFFYv4CwGv9ewiuu4eQHVbO7fD9uKui3_iZ0xlPvuQ1ssOSdliLCT-HirmpPWPsM1ePz2NyvGh6Spri4amx6qIRLr4afqYQbGXtwrT96HXnYhBQxCFBoPK9XFP1dNw1qE16F-HuOAca3gAKknheuRPe8HAQDD3ma9y3T6kWrGZL9VTfwb3qjXjzSt8LtZSteSVjSge1xqi4x-Qg_oyZtLuYpNEng3sebDA_JO2veVS8CsLh9LOSPrXTdPuYx8"
@@ -116,18 +160,6 @@ export default function LoginPage() {
                     height={20}
                     alt="Google"
                   />
-                }
-              />
-              <SocialButton
-                provider="Facebook"
-                icon={
-                  <svg
-                    className="h-5 w-5 text-[#1877F2]"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"></path>
-                  </svg>
                 }
               />
             </div>
@@ -144,11 +176,11 @@ export default function LoginPage() {
             </div>
 
             {/* Login Form */}
-            <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+            <form className="space-y-6" onSubmit={handleEmailLogin}>
               <div className="space-y-2">
                 <label
                   className="ml-1 text-sm font-bold text-slate-700 dark:text-slate-300"
-                  htmlFor="email text-slate-900 dark:text-white"
+                  htmlFor="email"
                 >
                   Correo electrónico
                 </label>
@@ -160,6 +192,9 @@ export default function LoginPage() {
                     type="email"
                     id="email"
                     placeholder="nombre@ejemplo.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
                     className="focus:border-primary/50 w-full rounded-2xl border-2 border-transparent bg-slate-50 py-4 pr-4 pl-12 text-slate-900 transition-all outline-none focus:bg-white dark:bg-slate-900/50 dark:text-white dark:focus:bg-slate-900"
                   />
                 </div>
@@ -188,35 +223,34 @@ export default function LoginPage() {
                     type="password"
                     id="password"
                     placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
                     className="focus:border-primary/50 w-full rounded-2xl border-2 border-transparent bg-slate-50 py-4 pr-4 pl-12 text-slate-900 transition-all outline-none focus:bg-white dark:bg-slate-900/50 dark:text-white dark:focus:bg-slate-900"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  id="remember"
-                  className="text-primary focus:ring-primary/20 h-5 w-5 cursor-pointer rounded-md border-slate-300 transition-all"
-                />
-                <label
-                  htmlFor="remember"
-                  className="cursor-pointer text-sm text-slate-600 select-none dark:text-slate-400"
-                >
-                  Mantener mi sesión iniciada
-                </label>
-              </div>
+              {error && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+                  {error}
+                </div>
+              )}
 
-              <button className="bg-primary shadow-primary/25 hover:shadow-primary/40 flex w-full transform items-center justify-center gap-2 rounded-2xl py-4.5 font-bold text-white shadow-xl transition-all hover:-translate-y-1 hover:bg-blue-700 active:translate-y-0 active:scale-[0.98]">
-                Iniciar Sesión ahora
-                <span className="material-icons">login</span>
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-primary shadow-primary/25 hover:shadow-primary/40 flex w-full transform items-center justify-center gap-2 rounded-2xl py-4 font-bold text-white shadow-xl transition-all hover:-translate-y-1 hover:bg-blue-700 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+              >
+                {loading ? 'Ingresando...' : 'Iniciar Sesión'}
+                {!loading && <span className="material-icons">login</span>}
               </button>
             </form>
 
             <p className="text-center text-slate-600 dark:text-slate-400">
               ¿Aún no tienes cuenta?
               <Link
-                href="/registros"
+                href="/register"
                 className="text-primary decoration-primary/30 ml-2 font-bold underline underline-offset-4 transition-colors hover:text-blue-700"
               >
                 Regístrate gratis
@@ -253,15 +287,29 @@ export default function LoginPage() {
   )
 }
 
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
 function SocialButton({
   provider,
   icon,
+  onClick,
 }: {
   provider: string
   icon: React.ReactNode
+  onClick?: () => void
 }) {
   return (
-    <button className="hover:border-primary/20 flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">
+    <button
+      type="button"
+      onClick={onClick}
+      className="hover:border-primary/20 flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white px-6 py-3.5 text-sm font-bold text-slate-700 shadow-sm transition-all hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+    >
       {icon}
       {provider}
     </button>
@@ -281,7 +329,7 @@ function TestimonialCard({
   rating: number
   text: string
   className: string
-  style?: any
+  style?: React.CSSProperties
   avatarBg: string
   avatarIconColor: string
 }) {
@@ -314,7 +362,7 @@ function TestimonialCard({
         </div>
       </div>
       <p className="text-sm leading-relaxed font-medium text-slate-600 italic dark:text-slate-400">
-        "{text.replace(/"/g, '')}"
+        &ldquo;{text.replace(/"/g, '')}&rdquo;
       </p>
     </div>
   )

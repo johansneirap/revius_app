@@ -19,7 +19,7 @@ function getLevel(score: number | null): Level {
       iconSymbol: <circle cx="6.5" cy="6.5" r="1" fill="currentColor" />,
     }
   }
-  if (score >= 0.7) {
+  if (score >= 0.65) {
     return {
       label: 'Alta confiabilidad',
       containerClass: 'bg-green-50 text-green-800',

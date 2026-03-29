@@ -18,7 +18,12 @@ sin explicaciones. El JSON debe tener exactamente esta estructura:
 Para ai_generated_prob considera: lenguaje demasiado perfecto o genérico,
 ausencia de detalles personales concretos, estructura excesivamente formal,
 uso de frases típicas de IA como "en conclusión" o "en general este producto".
-Sé equilibrado — no penalices reviews bien escritas por ser claras.`
+Sé equilibrado — no penalices reviews bien escritas por ser claras.
+
+Sé generoso en tu evaluación. Reserva ai_generated_prob > 0.7
+solo para casos muy evidentes: texto copiado, frases típicas de IA,
+ausencia total de experiencia personal. Una review corta pero genuina
+no es necesariamente poco confiable.`
 
 export type ReviewAnalysis = {
   ai_generated_prob: number
@@ -57,8 +62,13 @@ Review: ${input.body}`,
 
     const content = message.content[0]
     if (content.type !== 'text') return null
+    const rawText = content.text
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim()
 
-    const parsed = JSON.parse(content.text) as ReviewAnalysis
+    const parsed = JSON.parse(rawText) as ReviewAnalysis
 
     // Validación básica de la estructura
     if (

@@ -108,8 +108,25 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Paso 3: disparar análisis Anthropic en background (sin await)
-  runAnalysis(review.id, productId, rating, title, reviewBody.trim(), isVerifiedPurchase)
+  // Lanzar análisis y esperar máximo 8s antes de responder al cliente.
+  // Si termina antes, el credibility_score ya estará en la DB.
+  // Si no, quedará null y se mostrará "Analizando…" en la UI.
+  const analysisPromise = runAnalysis(
+    review.id,
+    productId,
+    rating,
+    title,
+    reviewBody.trim(),
+    isVerifiedPurchase,
+  )
+  analysisPromise.catch((err) =>
+    console.error('[POST /api/product-reviews] analysis failed:', err),
+  )
+
+  await Promise.race([
+    analysisPromise,
+    new Promise<void>((resolve) => setTimeout(resolve, 8000)),
+  ])
 
   return NextResponse.json(review, { status: 201 })
 }
@@ -161,11 +178,13 @@ async function runAnalysis(
 
   // Paso 5: calcular credibility_score
   // helpful_ratio = 0 para reviews nuevas (aún sin votos)
-  const helpfulRatio = 0
+  const helpfulCount = 0
+  const notHelpfulCount = 0
+  const helpfulRatio = helpfulCount / Math.max(helpfulCount + notHelpfulCount, 1)
   const credibilityScore =
-    (1 - analysis.ai_generated_prob) * 0.5 +
-    helpfulRatio * 0.3 +
-    (isVerifiedPurchase ? 0.2 : 0)
+    (1 - analysis.ai_generated_prob) * 0.6 +
+    (isVerifiedPurchase ? 0.25 : 0.15) +
+    helpfulRatio * 0.15
 
   const { error: updateError } = await serviceClient
     .from('product_reviews')
