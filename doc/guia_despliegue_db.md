@@ -7,6 +7,7 @@ Para ejecutar Revius.cl como una aplicación Fullstack, necesitamos una base de 
 **Sí, necesitas una instancia local.** La forma más limpia y estándar en la industria es usar **Docker**, ya que no "ensucia" tu sistema operativo instalando servidores manualmente.
 
 ### Opción A: Docker (Recomendada)
+
 He creado un archivo `docker-compose.yml` en la raíz del proyecto.
 
 1.  Asegúrate de tener Docker Desktop instalado y corriendo.
@@ -21,7 +22,9 @@ He creado un archivo `docker-compose.yml` en la raíz del proyecto.
     ```
 
 ### Opción B: Instalación Nativa
+
 Si prefieres no usar Docker, puedes instalar [Postgres.app](https://postgresapp.com/) (es lo más fácil en Mac).
+
 1.  Instala y abre la app.
 2.  Crea una base de datos llamada `revius_db`.
 3.  Tu URL será algo como: `postgresql://tu_usuario_mac@localhost:5432/revius_db`
@@ -35,17 +38,18 @@ Si prefieres no usar Docker, puedes instalar [Postgres.app](https://postgresapp.
 ### Opciones Gratuitas / Baratas para MVP:
 
 1.  **Vercel Postgres (Neon)**:
-    *   **Pros**: Se integra con 1 clic si usas Vercel. Muy rápido.
-    *   **Contras**: Tiene límites en el plan gratuito, pero suficientes para un MVP.
-    *   *Recomendado para empezar.*
+    - **Pros**: Se integra con 1 clic si usas Vercel. Muy rápido.
+    - **Contras**: Tiene límites en el plan gratuito, pero suficientes para un MVP.
+    - _Recomendado para empezar._
 
 2.  **Supabase**:
-    *   **Pros**: Muy generoso plan gratuito (500MB). Incluye autenticación y dashboard increíble.
-    *   **Contras**: Tienes que configurar un par de cosas extra si usas Prisma (connection pooling), pero es fácil.
+    - **Pros**: Muy generoso plan gratuito (500MB). Incluye autenticación y dashboard increíble.
+    - **Contras**: Tienes que configurar un par de cosas extra si usas Prisma (connection pooling), pero es fácil.
 
 3.  **Railway**:
-    *   **Pros**: Te da una base de datos Postgres completa por muy bajo costo (o créditos iniciales).
-    *   **Contras**: No tiene capa gratuita permanente como los otros.
+    - **Pros**: Te da una base de datos Postgres completa por muy bajo costo (o créditos iniciales).
+    - **Contras**: No tiene capa gratuita permanente como los otros.
 
 ### ¿Cómo conectar Producción?
+
 Simplemente en tu proveedor de hosting (ej: Vercel), configuras la Variable de Entorno `DATABASE_URL` con la dirección que te dé tu proveedor de base de datos (Supabase/Neon). No tienes que cambiar nada de código.

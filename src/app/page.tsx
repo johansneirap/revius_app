@@ -31,56 +31,65 @@ function Header() {
           <Logo />
         </div>
         <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
-          <Link href="#" className="border-b-2 border-primary py-5 text-primary">
+          <Link
+            href="#"
+            className="border-primary text-primary border-b-2 py-5"
+          >
             Inicio
           </Link>
           <Link
             href="#"
-            className="text-slate-600 transition-colors hover:text-primary dark:text-slate-400"
+            className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400"
           >
             Tecnología
           </Link>
           <Link
             href="#"
-            className="text-slate-600 transition-colors hover:text-primary dark:text-slate-400"
+            className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400"
           >
             Estilo de Vida
           </Link>
           <Link
             href="#"
-            className="text-slate-600 transition-colors hover:text-primary dark:text-slate-400"
+            className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400"
           >
             Hogar
           </Link>
           <Link
             href="#"
-            className="text-slate-600 transition-colors hover:text-primary dark:text-slate-400"
+            className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400"
           >
             Lo Mejor
           </Link>
         </nav>
-        <div className="relative hidden flex-grow max-w-md lg:block">
-          <span className="material-icons absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+        <div className="relative hidden max-w-md flex-grow lg:block">
+          <span className="material-icons absolute top-1/2 left-3 -translate-y-1/2 text-slate-400">
             search
           </span>
           <input
             type="text"
             placeholder="Busca productos, marcas o expertos..."
-            className="w-full rounded-lg border-none bg-slate-100 py-2 pl-10 pr-4 text-sm transition-all focus:ring-2 focus:ring-primary dark:bg-slate-800"
+            className="focus:ring-primary w-full rounded-lg border-none bg-slate-100 py-2 pr-4 pl-10 text-sm transition-all focus:ring-2 dark:bg-slate-800"
           />
         </div>
         <div className="flex items-center gap-4">
           <button
             onClick={() => document.documentElement.classList.toggle('dark')}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-600 dark:text-yellow-400"
+            className="rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 dark:text-yellow-400 dark:hover:bg-slate-800"
           >
             <span className="material-icons dark:hidden">dark_mode</span>
             <span className="material-icons hidden dark:block">light_mode</span>
           </button>
-          <Link href="/login" className="hidden text-sm font-medium text-slate-600 hover:text-primary dark:text-slate-400 sm:block">
+          <Link
+            href="/login"
+            className="hover:text-primary hidden text-sm font-medium text-slate-600 sm:block dark:text-slate-400"
+          >
             Ingresar
           </Link>
-          <Link href="/escribir-resena" className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-primary/20 transition-all hover:bg-blue-600 hover:-translate-y-0.5 active:translate-y-0 active:scale-95">
+          <Link
+            href="/escribir-resena"
+            className="bg-primary shadow-primary/20 flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-blue-600 active:translate-y-0 active:scale-95"
+          >
             <span className="material-icons text-sm">edit</span>
             Escribir Reseña
           </Link>
@@ -100,7 +109,7 @@ function HeroSection() {
         </div>
         <Link
           href="#"
-          className="flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+          className="text-primary flex items-center gap-1 text-sm font-semibold hover:underline"
         >
           Ver Tendencias{' '}
           <span className="material-icons text-sm">arrow_forward</span>
@@ -159,21 +168,16 @@ function ProductCard({
   return (
     <div className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition-shadow hover:shadow-lg dark:border-slate-800 dark:bg-slate-900">
       <div className="relative h-48 bg-slate-100 dark:bg-slate-800">
-        <Image
-          src={image}
-          alt={title}
-          fill
-          className="object-cover"
-        />
+        <Image src={image} alt={title} fill className="object-cover" />
         <div
-          className={`absolute left-3 top-3 rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-white ${badgeColor}`}
+          className={`absolute top-3 left-3 rounded px-2 py-1 text-[10px] font-bold tracking-wider text-white uppercase ${badgeColor}`}
         >
           {badge}
         </div>
       </div>
       <div className="p-5">
         <div className="mb-2 flex items-start justify-between">
-          <h3 className="text-lg font-bold transition-colors group-hover:text-primary">
+          <h3 className="group-hover:text-primary text-lg font-bold transition-colors">
             {title}
           </h3>
           <span className="flex items-center rounded bg-green-100 px-2 py-1 text-xs font-bold text-green-700 dark:bg-green-900/30 dark:text-green-400">
@@ -185,12 +189,12 @@ function ProductCard({
         </p>
         <div className="flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
           <div>
-            <p className="text-xs font-semibold uppercase text-slate-400">
+            <p className="text-xs font-semibold text-slate-400 uppercase">
               Mejor Precio
             </p>
-            <p className="text-xl font-bold text-primary">{price}</p>
+            <p className="text-primary text-xl font-bold">{price}</p>
           </div>
-          <button className="rounded bg-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700">
+          <button className="bg-primary rounded px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700">
             Ver Ofertas
           </button>
         </div>
@@ -201,7 +205,7 @@ function ProductCard({
 
 function PromoBanner() {
   return (
-    <div className="relative mb-12 flex h-40 items-center overflow-hidden rounded-xl border border-primary/20 bg-primary/10 px-12">
+    <div className="border-primary/20 bg-primary/10 relative mb-12 flex h-40 items-center overflow-hidden rounded-xl border px-12">
       <div className="z-10 max-w-md">
         <h2 className="mb-2 text-2xl font-bold text-slate-900 dark:text-white">
           Evento de Actualización Tech
@@ -209,14 +213,14 @@ function PromoBanner() {
         <p className="mb-4 text-slate-600 dark:text-slate-300">
           Cupones exclusivos para nuestra comunidad en más de 500 gadgets top.
         </p>
-        <button className="rounded-lg bg-primary px-6 py-2 font-bold text-white transition-all hover:shadow-lg">
+        <button className="bg-primary rounded-lg px-6 py-2 font-bold text-white transition-all hover:shadow-lg">
           Obtener Cupones
         </button>
       </div>
-      <div className="pointer-events-none absolute bottom-0 right-0 top-0 w-1/2 opacity-20">
-        <div className="h-full w-full bg-gradient-to-l from-primary to-transparent"></div>
+      <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-1/2 opacity-20">
+        <div className="from-primary h-full w-full bg-gradient-to-l to-transparent"></div>
       </div>
-      <span className="material-icons absolute right-12 text-9xl text-primary opacity-10">
+      <span className="material-icons text-primary absolute right-12 text-9xl opacity-10">
         local_offer
       </span>
     </div>
@@ -270,7 +274,7 @@ function ReviewCard({
   rating,
   quote,
   image,
-  badge
+  badge,
 }: {
   name: string
   role: string
@@ -290,33 +294,36 @@ function ReviewCard({
             height={56}
             className="rounded-full object-cover"
           />
-          <span className="material-icons absolute -bottom-1 -right-1 rounded-full bg-white text-lg text-primary dark:bg-slate-900">
+          <span className="material-icons text-primary absolute -right-1 -bottom-1 rounded-full bg-white text-lg dark:bg-slate-900">
             verified
           </span>
         </div>
         <div>
           <h4 className="font-bold">{name}</h4>
-          <p className="text-xs font-medium uppercase text-slate-400">
-            {role}
-          </p>
+          <p className="text-xs font-medium text-slate-400 uppercase">{role}</p>
           <div className="mt-1 flex items-center">
             {[...Array(5)].map((_, i) => (
-              <span key={i} className={`material-icons text-xs ${i < Math.floor(rating) ? 'text-yellow-400' : 'text-slate-300'}`}>star</span>
+              <span
+                key={i}
+                className={`material-icons text-xs ${i < Math.floor(rating) ? 'text-yellow-400' : 'text-slate-300'}`}
+              >
+                star
+              </span>
             ))}
             <span className="ml-2 text-xs font-bold">{rating.toFixed(1)}</span>
           </div>
         </div>
       </div>
-      <blockquote className="mb-4 italic text-slate-700 dark:text-slate-300">
+      <blockquote className="mb-4 text-slate-700 italic dark:text-slate-300">
         {quote}
       </blockquote>
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+        <span className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
           {badge}
         </span>
         <Link
           href="#"
-          className="text-xs font-bold text-primary hover:underline"
+          className="text-primary text-xs font-bold hover:underline"
         >
           Leer Reseña Completa
         </Link>
@@ -330,14 +337,14 @@ function Sidebar() {
     <aside className="w-full flex-shrink-0 space-y-8 lg:w-80">
       <div className="rounded-xl border border-slate-200 bg-slate-100 p-4 dark:border-slate-800 dark:bg-slate-800/50">
         <div className="mb-3 flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          <span className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
             Oferta Partner
           </span>
           <span className="material-symbols-outlined cursor-help text-xs text-slate-400">
             info
           </span>
         </div>
-        <div className="mb-3 overflow-hidden rounded-lg relative h-32">
+        <div className="relative mb-3 h-32 overflow-hidden rounded-lg">
           <Image
             src="https://lh3.googleusercontent.com/aida-public/AB6AXuAw-hBNVI4d5Dv1UCVmBfj5IPiuXRC9se0QrECc9ORtgCv-ZKuU8amsjxCt0eRHwBaz-iDbzeXGaz73b6zIxEvYAsMi5aGo3_nyQ4ZRuoxqune-qZuBH3vSv2XN65So6xCXkKi8dzQSY__Kcmgzq_u7DwNaoDaJFuD1MJr8kQ8KhiImLwgPQo9pFvXm4eY3h9Jo9O1mUY1luXBwA7VjU8HAjrG_b1NZ22PQAQ2h5pzERzDuBdTI_J2k7pObIa8QVLLsKXGEvOmtmERg"
             alt="Fondo de escritorio"
@@ -352,7 +359,7 @@ function Sidebar() {
           Recibe hasta $400.000 por tus dispositivos antiguos al renovar con
           nuestro partner oficial.
         </p>
-        <button className="w-full rounded bg-slate-900 py-2 text-xs font-bold uppercase tracking-tight text-white transition-opacity hover:opacity-90 dark:bg-white dark:text-slate-900">
+        <button className="w-full rounded bg-slate-900 py-2 text-xs font-bold tracking-tight text-white uppercase transition-opacity hover:opacity-90 dark:bg-white dark:text-slate-900">
           Saber Más
         </button>
       </div>
@@ -360,13 +367,28 @@ function Sidebar() {
       <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
         <h3 className="mb-4 font-bold">Compara Precios en Retail</h3>
         <div className="space-y-4">
-          <RetailRow name="Falabella" code="FAL" status="Despacho Rápido" statusColor="text-green-600" />
-          <RetailRow name="Paris" code="PAR" status="Retiro en Tienda" statusColor="text-slate-500" />
-          <RetailRow name="Ripley" code="RIP" status="Mejor Precio" statusColor="text-primary" />
+          <RetailRow
+            name="Falabella"
+            code="FAL"
+            status="Despacho Rápido"
+            statusColor="text-green-600"
+          />
+          <RetailRow
+            name="Paris"
+            code="PAR"
+            status="Retiro en Tienda"
+            statusColor="text-slate-500"
+          />
+          <RetailRow
+            name="Ripley"
+            code="RIP"
+            status="Mejor Precio"
+            statusColor="text-primary"
+          />
         </div>
       </div>
 
-      <div className="rounded-xl bg-primary p-6 text-white shadow-xl shadow-primary/20">
+      <div className="bg-primary shadow-primary/20 rounded-xl p-6 text-white shadow-xl">
         <h3 className="mb-2 text-lg font-bold">El Pulso Semanal</h3>
         <p className="mb-4 text-sm text-blue-100">
           Recibe las mejores ofertas y reseñas críticas en tu correo cada
@@ -376,9 +398,9 @@ function Sidebar() {
           <input
             type="email"
             placeholder="Correo electrónico"
-            className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm placeholder:text-blue-200 focus:outline-none focus:ring-2 focus:ring-white/30"
+            className="w-full rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm placeholder:text-blue-200 focus:ring-2 focus:ring-white/30 focus:outline-none"
           />
-          <button className="w-full rounded-lg bg-white py-2 text-sm font-bold text-primary transition-colors hover:bg-blue-50">
+          <button className="text-primary w-full rounded-lg bg-white py-2 text-sm font-bold transition-colors hover:bg-blue-50">
             Suscribirse Ahora
           </button>
         </div>
@@ -389,12 +411,12 @@ function Sidebar() {
 
       <div className="rounded-xl border border-slate-200 bg-slate-100 p-4 dark:border-slate-800 dark:bg-slate-800/50">
         <div className="mb-3 flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          <span className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
             Patrocinado
           </span>
         </div>
         <div className="flex gap-3">
-          <div className="h-20 w-20 flex-shrink-0 rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900 relative">
+          <div className="relative h-20 w-20 flex-shrink-0 rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900">
             <Image
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdCG7YS1Cp9ceNVJPJcCSqETqYLQmYzMnia9uGVeM4AQxVRQGP52Q-wZJ_pQCD_rwj_ui6osyLTtmaoF_zf6qv07HCWe4PNwSfZm7oMswWq3f8JirfJGAJpTGLu9id_pFvQjKh0F9ceyp0sKcnUOz8EVWzSMJzq-EX9dlbyfcy-5jmB21NpnXztHmPvieHllQZVZo0dHxD4IjlQXD810tXLNuUAiakmks_ylva3Gvlve2UyH36dM96ZxMs-i8meumvvclfi89iOsMC"
               alt="Reloj inteligente"
@@ -403,13 +425,13 @@ function Sidebar() {
             />
           </div>
           <div>
-            <h6 className="mb-1 text-xs font-bold leading-tight">
+            <h6 className="mb-1 text-xs leading-tight font-bold">
               Heritage Smartwatch Pro Edición Cuero
             </h6>
-            <p className="mb-1 text-xs font-bold text-primary">$299.990</p>
+            <p className="text-primary mb-1 text-xs font-bold">$299.990</p>
             <Link
               href="#"
-              className="text-[10px] font-bold text-slate-500 hover:text-primary underline"
+              className="hover:text-primary text-[10px] font-bold text-slate-500 underline"
             >
               Comprar Ahora
             </Link>
@@ -420,18 +442,26 @@ function Sidebar() {
   )
 }
 
-function RetailRow({ name, code, status, statusColor }: { name: string, code: string, status: string, statusColor: string }) {
+function RetailRow({
+  name,
+  code,
+  status,
+  statusColor,
+}: {
+  name: string
+  code: string
+  status: string
+  statusColor: string
+}) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded bg-slate-100 text-[10px] font-bold text-primary dark:bg-slate-800">
+        <div className="text-primary flex h-8 w-8 items-center justify-center rounded bg-slate-100 text-[10px] font-bold dark:bg-slate-800">
           {code}
         </div>
         <span className="text-sm font-medium">{name}</span>
       </div>
-      <span className={`text-xs font-bold ${statusColor}`}>
-        {status}
-      </span>
+      <span className={`text-xs font-bold ${statusColor}`}>{status}</span>
     </div>
   )
 }
@@ -483,13 +513,13 @@ function Footer() {
             </ul>
           </div>
         </div>
-        <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-100 pt-8 dark:border-slate-800 md:flex-row">
+        <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-100 pt-8 md:flex-row dark:border-slate-800">
           <p className="text-xs text-slate-400">
             © 2024 Revius.cl Media. Todos los derechos reservados.{' '}
             <span className="mx-2">|</span> Divulgación: Podemos ganar una
             comisión al hacer clic en enlaces de nuestro sitio.
           </p>
-          <div className="flex gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          <div className="flex gap-6 text-[10px] font-bold tracking-widest text-slate-400 uppercase">
             <Link href="#" className="hover:text-primary">
               Política de Privacidad
             </Link>
@@ -510,17 +540,23 @@ function SocialIcon({ icon }: { icon: string }) {
   return (
     <Link
       href="#"
-      className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-colors hover:text-primary dark:bg-slate-800 dark:text-slate-400"
+      className="hover:text-primary flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-colors dark:bg-slate-800 dark:text-slate-400"
     >
       <span className="material-icons text-sm">{icon}</span>
     </Link>
   )
 }
 
-function FooterLink({ href, children }: { href: string; children: React.ReactNode }) {
+function FooterLink({
+  href,
+  children,
+}: {
+  href: string
+  children: React.ReactNode
+}) {
   return (
     <li>
-      <Link href={href} className="transition-colors hover:text-primary">
+      <Link href={href} className="hover:text-primary transition-colors">
         {children}
       </Link>
     </li>

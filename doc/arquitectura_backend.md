@@ -9,21 +9,22 @@ Para el MVP de Revius.cl, hemos adoptado una arquitectura **monolítica moderna*
 En lugar de separar el backend (API REST/GraphQL) del frontend, integramos la lógica de negocio directamente junto a la UI pero de forma desacoplada.
 
 **Ventajas Clave:**
+
 1.  **Type Safety (Seguridad de Tipos)**: Al usar TypeScript en todo el stack, los componentes de UI saben exactamente qué datos devuelve la base de datos sin necesidad de definir DTOs manuales o interfaces duplicadas.
-2.  **Rendimiento**: Los *Server Components* pueden llamar a la base de datos directamente (sin hacer un `fetch` HTTP a una API interna), lo que reduce la latencia.
+2.  **Rendimiento**: Los _Server Components_ pueden llamar a la base de datos directamente (sin hacer un `fetch` HTTP a una API interna), lo que reduce la latencia.
 3.  **Simplicidad**: Menos archivos de configuración, despliegue único y gestión de estado simplificada.
 
 ### Patrón de Diseño: Service Layer
 
 Para mantener el código ordenado y escalable, implementamos una **Capa de Servicios** (`src/services/`).
 
-*   **`src/app/` (UI Layer)**: Solo se encarga de mostrar datos y capturar interacciones. Llama a los servicios, nunca a la base de datos directamente.
-*   **`src/services/` (Business Logic)**: Contiene la lógica pura.
-    *   Ejecuta validaciones de negocio.
-    *   Interactúa con Prisma (`db`).
-    *   Prepara los datos para la vista.
-*   **`src/lib/prisma.ts` (Data Access)**: Singleton para la conexión a la base de datos.
-*   **Base de Datos**: PostgreSQL.
+- **`src/app/` (UI Layer)**: Solo se encarga de mostrar datos y capturar interacciones. Llama a los servicios, nunca a la base de datos directamente.
+- **`src/services/` (Business Logic)**: Contiene la lógica pura.
+  - Ejecuta validaciones de negocio.
+  - Interactúa con Prisma (`db`).
+  - Prepara los datos para la vista.
+- **`src/lib/prisma.ts` (Data Access)**: Singleton para la conexión a la base de datos.
+- **Base de Datos**: PostgreSQL.
 
 #### Ejemplo de Flujo de Datos
 
@@ -36,4 +37,4 @@ Para mantener el código ordenado y escalable, implementamos una **Capa de Servi
 
 ### Evolución Futura
 
-Si la aplicación crece y requiere una API pública (para una App Móvil futura), esta estructura facilita la transición. Solo necesitaríamos crear *Route Handlers* (`/api/v1/...`) que consuman **los mismos servicios** que ya creamos, exponiendo los datos como JSON.
+Si la aplicación crece y requiere una API pública (para una App Móvil futura), esta estructura facilita la transición. Solo necesitaríamos crear _Route Handlers_ (`/api/v1/...`) que consuman **los mismos servicios** que ya creamos, exponiendo los datos como JSON.
