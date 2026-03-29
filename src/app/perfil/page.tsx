@@ -122,8 +122,8 @@ export default async function UserProfilePage() {
   ])
 
   const profile = profileRes.data as Profile | null
-  const reviews = (reviewsRes.data ?? []) as ProfileReview[]
-  const favorites = (favoritesRes.data ?? []) as FavoriteItem[]
+  const reviews = (reviewsRes.data ?? []) as unknown as ProfileReview[]
+  const favorites = (favoritesRes.data ?? []) as unknown as FavoriteItem[]
 
   const displayName =
     profile?.name ||
