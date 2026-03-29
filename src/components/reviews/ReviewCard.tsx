@@ -18,7 +18,7 @@ export type ProductReviewFull = {
   created_at: string
   updated_at: string
   // Campos del autor (desde users)
-  author_username: string | null
+  author_name: string | null
   author_avatar: string | null
   author_level: 'bronce' | 'plata' | 'oro' | 'experto' | 'premium' | null
   // Campos del análisis (desde review_analysis)
@@ -73,8 +73,8 @@ type Props = {
 }
 
 export default function ReviewCard({ review }: Props) {
-  const authorName = review.author_username ?? 'Usuario'
-  const initials = authorName.slice(0, 2).toUpperCase()
+  const authorName = review.author_name || 'Usuario'
+  const initials = review.author_name?.charAt(0).toUpperCase() || 'U'
 
   return (
     <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
