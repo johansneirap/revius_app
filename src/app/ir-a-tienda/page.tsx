@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Logo from '@/components/Logo'
 
-export default function RedirectPage() {
+function RedirectContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const storeName = searchParams.get('tienda') || 'la tienda'
@@ -125,5 +125,13 @@ export default function RedirectPage() {
         }
       `}</style>
     </div>
+  )
+}
+
+export default function RedirectPage() {
+  return (
+    <Suspense>
+      <RedirectContent />
+    </Suspense>
   )
 }
