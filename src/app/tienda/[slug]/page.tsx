@@ -1,69 +1,154 @@
-'use client'
-
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import Logo from '@/components/Logo'
-import { useState, useEffect } from 'react'
+import DarkModeToggle from '@/components/ui/DarkModeToggle'
+import NavUser from '@/components/ui/NavUser'
+import { createClient } from '@/lib/supabase/server'
 
-export default function StoreProfilePage() {
-  const [mounted, setMounted] = useState(false)
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+type Store = {
+  id: string
+  name: string
+  slug: string
+  logo_url: string | null
+  is_verified: boolean
+  avg_score: number | null
+  review_count: number | null
+  website_url: string | null
+  description: string | null
+  avg_shipping_speed: number | null
+  avg_support: number | null
+  avg_packaging: number | null
+  avg_response_hours: number | null
+  return_rate: number | null
+}
 
-  // Mock data for the store
-  const store = {
-    name: 'TechNova Direct',
-    verified: true,
-    category: 'Hardware Global & Electrónica High-End',
-    rating: 4.2,
-    reviewsCount: 12840,
-    logo: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCkUo7wxrzysLmn49Ex6_9voJsEQR52wGcA-HbTdjRIOaYmVYXzNPcrEwvp2qG0FNp2stNBfMu9XR8YsvLe0l3fSmXpcSK8qJql3LPafnL1Q1_bo9s11_fGAtpCc2dSabvIPr0Nk6NvetNC3uK-o8uFDvOVIuxPbw29-rG742y34R6pi2rXJv-1O4Xw4u5JUkicY5w9NVshgoeyWGnBMxgnPXfYUh_FTykCfabRaG1PQfPTmA-QihG7TbV49K5fXMIPqaJK9ywHUj6k',
-    reputation: [
-      {
-        label: 'Velocidad de Envío',
-        score: 4.8,
-        percentage: 96,
-        color: 'bg-emerald-500',
-      },
-      {
-        label: 'Soporte al Cliente',
-        score: 3.9,
-        percentage: 78,
-        color: 'bg-primary',
-      },
-      {
-        label: 'Calidad de Empaque',
-        score: 4.5,
-        percentage: 90,
-        color: 'bg-primary',
-      },
-    ],
-    stats: {
-      responseTime: '~2 Horas',
-      returnRate: '1.2%',
+type ProductSource = {
+  id: string
+  price: number | null
+  original_price: number | null
+  currency: string | null
+  in_stock: boolean
+  shipping_info: string | null
+  url: string | null
+  products: {
+    id: string
+    name: string
+    slug: string
+    image_url: string | null
+    avg_score: number | null
+  } | null
+}
+
+type StoreReview = {
+  id: string
+  store_id: string
+  rating_overall: number
+  body: string | null
+  is_verified_purchase: boolean
+  created_at: string
+  author_name: string | null
+  author_avatar: string | null
+  author_level: string | null
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatReviewCount(n: number | null): string {
+  if (!n) return '0'
+  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k+`
+  return String(n)
+}
+
+function formatResponseTime(hours: number | null): string {
+  if (hours === null) return 'N/A'
+  if (hours < 1) return '< 1 Hora'
+  if (hours < 2) return '~1 Hora'
+  return `~${Math.round(hours)} Horas`
+}
+
+function formatReturnRate(rate: number | null): string {
+  if (rate === null) return 'N/A'
+  return `${rate.toFixed(1)}%`
+}
+
+function formatRelativeDate(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const days = Math.floor(diff / 86400000)
+  if (days === 0) return 'Hoy'
+  if (days === 1) return 'Hace 1 día'
+  if (days < 7) return `Hace ${days} días`
+  if (days < 30) return `Hace ${Math.floor(days / 7)} semanas`
+  return `Hace ${Math.floor(days / 30)} meses`
+}
+
+function scoreToPercent(score: number | null): number {
+  if (!score) return 0
+  return Math.round((score / 5) * 100)
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+type Props = { params: Promise<{ slug: string }> }
+
+export default async function TiendaPage({ params }: Props) {
+  const { slug } = await params
+  const supabase = await createClient()
+
+  // Step 1: fetch store by slug
+  const { data: storeData } = await supabase
+    .from('stores')
+    .select('*')
+    .eq('slug', slug)
+    .single()
+
+  if (!storeData) notFound()
+
+  const store = storeData as unknown as Store
+
+  // Step 2: parallel queries using real store.id
+  const [{ data: sourcesData }, { data: reviewsData }] = await Promise.all([
+    supabase
+      .from('product_sources')
+      .select(
+        'id, price, original_price, currency, in_stock, shipping_info, url, products(id, name, slug, image_url, avg_score)',
+      )
+      .eq('store_id', store.id)
+      .eq('in_stock', true)
+      .order('price', { ascending: true })
+      .limit(10),
+    supabase
+      .from('store_reviews_full')
+      .select('*')
+      .eq('store_id', store.id)
+      .order('created_at', { ascending: false })
+      .limit(10),
+  ])
+
+  const productSources = (sourcesData ?? []) as unknown as ProductSource[]
+  const storeReviews = (reviewsData ?? []) as unknown as StoreReview[]
+
+  const reputation = [
+    {
+      label: 'Velocidad de Envío',
+      score: store.avg_shipping_speed,
+      percentage: scoreToPercent(store.avg_shipping_speed),
+      color: 'bg-emerald-500',
     },
-    deals: [
-      {
-        name: 'NovaVision 34" Curved Gaming Monitor',
-        price: 349990,
-        oldPrice: 429990,
-        discount: true,
-        image:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuAsEOz4ePXFOFRun-L-D8HwkSEjQ0RoVPbSvzn416ip1bKSBDmAHcDLFbJtW7slfRzjw1nc9CpSSNV9OdgwsbROPpZAdg6IKzhEM0bUDWhObCAvo6RmtGMCmjL4pm8rPs4Fi3Z3EWsmduuJwT-uPd01_igV20JzpMgiUOClIWUeEKQmQyVrgQpTN9nvHIn1GyLJfCJl2i_2QZWU2spzah3SnUDKvzrL8x5u9nGG5EYkghkf9-ycz-BP7Mq6fTaknJI2zN8boU-tA0nv',
-      },
-      {
-        name: 'ProClick Mechanical Keyboard RGB',
-        price: 129000,
-        badge: 'Best Price',
-        image:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuAIn1mIMmQ2LlvWUbCYKIwEqpbBY75WHztyr2ajFZ5wXY0bwDgO3hb6qEhzVYInNOUQxmcjnEkGOhpXXXkcRg69gFQQ2KMCVjxcYyev6i5fiz9G3kSD0fycf9vsd_KgK06b4EWfCk96j0fqaj-JKfdKTgyH4iLOiB3_ValuePgOqV7geyVOLFBMQXS1pUElOkLHnDJh03PXyD1wRuo-NauE7gRb4C4Wb-_CkwPRKMzpa2lvNGoKsOYgvfOmUse7EQ7fDVOQkCKqKL1p',
-      },
-    ],
-  }
-
-  if (!mounted) return null
+    {
+      label: 'Soporte al Cliente',
+      score: store.avg_support,
+      percentage: scoreToPercent(store.avg_support),
+      color: 'bg-primary',
+    },
+    {
+      label: 'Calidad de Empaque',
+      score: store.avg_packaging,
+      percentage: scoreToPercent(store.avg_packaging),
+      color: 'bg-primary',
+    },
+  ]
 
   return (
     <div className="bg-background-light dark:bg-background-dark font-display min-h-screen text-slate-900 transition-colors dark:text-slate-100">
@@ -85,70 +170,64 @@ export default function StoreProfilePage() {
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <button
-                onClick={() =>
-                  document.documentElement.classList.toggle('dark')
-                }
-                className="rounded-full p-2 text-slate-600 transition-colors hover:bg-slate-100 dark:text-yellow-400 dark:hover:bg-slate-800"
-              >
-                <span className="material-icons dark:hidden">dark_mode</span>
-                <span className="material-icons hidden dark:block">
-                  light_mode
-                </span>
-              </button>
-              <Link
-                href="/login"
-                className="bg-primary shadow-primary/20 hover:bg-primary/90 flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold text-white shadow-lg transition-all"
-              >
-                <span className="material-icons text-sm">person</span>
-                Ingresar
-              </Link>
+              <DarkModeToggle />
+              <NavUser />
             </div>
           </div>
         </div>
       </nav>
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 md:py-12 lg:px-8">
-        {/* Store Hero Section */}
+        {/* Store Hero */}
         <section className="animate-in fade-in slide-in-from-top-4 mb-12 duration-700">
           <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
             <div className="flex items-start gap-8">
               <div className="border-primary/10 group relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-2xl border bg-white p-3 shadow-xl dark:bg-slate-800">
-                <Image
-                  src={store.logo}
-                  alt={store.name}
-                  width={128}
-                  height={128}
-                  className="max-h-full max-w-full rounded-lg transition-transform group-hover:scale-110"
-                />
+                {store.logo_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={store.logo_url}
+                    alt={store.name}
+                    referrerPolicy="no-referrer"
+                    className="max-h-full max-w-full rounded-lg transition-transform group-hover:scale-110"
+                  />
+                ) : (
+                  <span className="material-icons text-5xl text-slate-300">
+                    storefront
+                  </span>
+                )}
               </div>
               <div className="pt-2">
                 <div className="mb-2 flex items-center gap-3">
                   <h1 className="text-4xl font-black tracking-tight">
                     {store.name}
                   </h1>
-                  <span
-                    className="material-icons text-primary text-2xl"
-                    title="Verified Retailer"
-                  >
-                    verified
-                  </span>
+                  {store.is_verified && (
+                    <span
+                      className="material-icons text-primary text-2xl"
+                      title="Tienda Verificada Revius"
+                    >
+                      verified
+                    </span>
+                  )}
                 </div>
-                <p className="flex items-center gap-2 font-medium text-slate-500 dark:text-slate-400">
-                  <span className="material-icons text-primary text-base">
-                    location_on
-                  </span>{' '}
-                  {store.category}
-                </p>
+                {store.description && (
+                  <p className="flex items-center gap-2 font-medium text-slate-500 dark:text-slate-400">
+                    <span className="material-icons text-primary text-base">
+                      location_on
+                    </span>
+                    {store.description}
+                  </p>
+                )}
                 <div className="mt-4 flex items-center gap-6">
                   <div className="flex items-center gap-1.5 rounded-full bg-amber-100 px-4 py-1.5 font-black text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                     <span className="material-symbols-outlined fill-1 text-lg">
                       star
                     </span>
-                    {store.rating}
+                    {store.avg_score?.toFixed(1) ?? '—'}
                   </div>
                   <span className="text-sm font-bold tracking-widest text-slate-400 uppercase dark:text-slate-500">
-                    {store.reviewsCount.toLocaleString()} Reseñas Verificadas
+                    {formatReviewCount(store.review_count)} Reseñas Verificadas
                   </span>
                 </div>
               </div>
@@ -157,18 +236,32 @@ export default function StoreProfilePage() {
               <button className="border-primary/10 hover:bg-primary/5 dark:hover:bg-primary/10 flex flex-1 items-center justify-center gap-3 rounded-2xl border bg-white px-8 py-4 font-bold text-slate-700 shadow-lg transition-all active:scale-95 md:flex-none dark:bg-slate-800 dark:text-slate-200">
                 <span className="material-icons text-lg">share</span> Compartir
               </button>
-              <button className="bg-primary hover:bg-primary/90 shadow-primary/30 flex flex-1 items-center justify-center gap-3 rounded-2xl px-8 py-4 font-black text-white shadow-xl transition-all active:scale-95 md:flex-none">
-                Ver Sitio Web{' '}
-                <span className="material-icons text-lg">open_in_new</span>
-              </button>
+              {store.website_url ? (
+                <a
+                  href={store.website_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-primary hover:bg-primary/90 shadow-primary/30 flex flex-1 items-center justify-center gap-3 rounded-2xl px-8 py-4 font-black text-white shadow-xl transition-all active:scale-95 md:flex-none"
+                >
+                  Ver Sitio Web{' '}
+                  <span className="material-icons text-lg">open_in_new</span>
+                </a>
+              ) : (
+                <button
+                  disabled
+                  className="flex flex-1 items-center justify-center gap-3 rounded-2xl bg-slate-200 px-8 py-4 font-black text-slate-400 md:flex-none dark:bg-slate-800 dark:text-slate-600"
+                >
+                  Ver Sitio Web{' '}
+                  <span className="material-icons text-lg">open_in_new</span>
+                </button>
+              )}
             </div>
           </div>
         </section>
 
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
-          {/* Left Column: Reputation & Sidebar */}
+          {/* Left Column: Reputation */}
           <aside className="space-y-8 lg:col-span-4">
-            {/* Reputation Scorecard */}
             <div className="border-primary/5 rounded-3xl border bg-white p-8 shadow-xl dark:bg-slate-900">
               <h2 className="mb-8 flex items-center gap-3 text-xl font-black">
                 <span className="material-symbols-outlined text-primary">
@@ -177,22 +270,28 @@ export default function StoreProfilePage() {
                 Reputación Revius
               </h2>
               <div className="space-y-8">
-                {store.reputation.map((item, i) => (
-                  <div key={i}>
+                {reputation.map((item) => (
+                  <div key={item.label}>
                     <div className="mb-3 flex items-center justify-between">
                       <span className="text-sm font-bold text-slate-600 dark:text-slate-400">
                         {item.label}
                       </span>
                       <span className="text-sm font-black text-slate-900 tabular-nums dark:text-white">
-                        {item.score}/5
+                        {item.score !== null
+                          ? `${item.score.toFixed(1)}/5`
+                          : 'Sin datos'}
                       </span>
                     </div>
-                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                      <div
-                        className={`${item.color} h-full rounded-full transition-all duration-1000`}
-                        style={{ width: `${item.percentage}%` }}
-                      ></div>
-                    </div>
+                    {item.score !== null ? (
+                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                        <div
+                          className={`${item.color} h-full rounded-full transition-all duration-1000`}
+                          style={{ width: `${item.percentage}%` }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" />
+                    )}
                   </div>
                 ))}
               </div>
@@ -203,105 +302,43 @@ export default function StoreProfilePage() {
                       Tiempo Resp.
                     </p>
                     <p className="text-primary text-lg font-black">
-                      {store.stats.responseTime}
+                      {formatResponseTime(store.avg_response_hours)}
                     </p>
                   </div>
-                  <div className="bg-primary/10 h-10 w-px"></div>
+                  <div className="bg-primary/10 h-10 w-px" />
                   <div className="flex-1 text-center">
                     <p className="mb-1 text-[10px] font-black tracking-widest text-slate-500 uppercase">
                       Tasa Devolución
                     </p>
                     <p className="text-lg font-black text-emerald-500">
-                      {store.stats.returnRate}
+                      {formatReturnRate(store.return_rate)}
                     </p>
                   </div>
                 </div>
               </div>
             </div>
-
-            {/* Expert Highlights */}
-            <div className="border-primary/5 rounded-3xl border bg-white p-8 shadow-xl dark:bg-slate-900">
-              <h2 className="mb-6 flex items-center gap-3 text-xl font-black">
-                <span className="material-symbols-outlined text-primary">
-                  verified
-                </span>
-                Opinión de Expertos
-              </h2>
-              <div className="space-y-6">
-                <div className="bg-primary/5 dark:bg-primary/10 border-primary/10 relative rounded-2xl border p-5">
-                  <div className="mb-3 flex items-center gap-3">
-                    <div className="relative h-10 w-10 overflow-hidden rounded-full border-2 border-white bg-slate-200 dark:border-slate-800">
-                      <Image
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuCGKFcMkje2kfUV6EwmcjmK9Kr1iabYdrGQPDr-6b4eitXucRtJhflGNCHj_yIdY6XNQ9pMBrgQDlTdq_hWungFar3zT18M5r1z6gnVTsAhvbO0iYIqhXan0_RJocdZvnxvCN06iDhkYiB35aJYQWbQ-2g4uWXGJfxKnzIVBxJDn_ZDBoOdXsuZFgqumq1AYFwrGxRZh5NP5SO-oYQIZHoIMV4TUhnrAydmYh2W4UmIR6lAe3Q21Vph6fLxx2y7ga-z0n5I92IJ6LLv"
-                        fill
-                        alt="Expert"
-                        className="object-cover"
-                      />
-                    </div>
-                    <span className="text-sm font-black tracking-tight">
-                      @TechChileGuru
-                    </span>
-                  </div>
-                  <p className="text-sm leading-relaxed text-slate-600 italic dark:text-slate-300">
-                    "Envío ultra rápido para GPUs. El soporte postventa en Chile
-                    es de lo mejor."
-                  </p>
-                  <span className="material-icons text-primary/20 absolute top-6 right-6 text-4xl">
-                    format_quote
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Shipping Info */}
-            <div className="group relative overflow-hidden rounded-3xl bg-slate-900 p-8 text-white shadow-2xl">
-              <div className="bg-primary/20 group-hover:bg-primary/40 absolute top-0 right-0 -mt-16 -mr-16 h-32 w-32 rounded-full blur-3xl transition-all"></div>
-              <h3 className="relative z-10 mb-6 text-xl font-black">
-                Envío & Devolución
-              </h3>
-              <ul className="relative z-10 space-y-5 text-sm font-medium">
-                <li className="flex items-center gap-4">
-                  <span className="material-icons text-primary bg-primary/10 rounded-xl p-2">
-                    local_shipping
-                  </span>
-                  Gratis sobre $50.000
-                </li>
-                <li className="flex items-center gap-4">
-                  <span className="material-icons text-primary bg-primary/10 rounded-xl p-2">
-                    history
-                  </span>
-                  30 días de satisfacción
-                </li>
-                <li className="flex items-center gap-4">
-                  <span className="material-icons text-primary bg-primary/10 rounded-xl p-2">
-                    shield
-                  </span>
-                  Embalaje de seguridad Pro
-                </li>
-              </ul>
-            </div>
           </aside>
 
           {/* Right Column: Products & Reviews */}
           <div className="space-y-12 lg:col-span-8">
-            {/* Navigation Tabs */}
+            {/* Tabs */}
             <div className="border-primary/10 flex border-b">
               <button className="text-primary border-primary border-b-4 px-8 py-5 text-sm font-black tracking-widest uppercase">
-                Ofertas (14)
+                Ofertas ({productSources.length})
               </button>
               <button className="px-8 py-5 text-sm font-bold tracking-widest text-slate-400 uppercase transition-colors hover:text-slate-900 dark:hover:text-white">
-                Reseñas (12k+)
+                Reseñas ({formatReviewCount(store.review_count)})
               </button>
               <button className="px-8 py-5 text-sm font-bold tracking-widest text-slate-400 uppercase transition-colors hover:text-slate-900 dark:hover:text-white">
                 Información
               </button>
             </div>
 
-            {/* Deals Section */}
+            {/* Deals */}
             <div className="space-y-6">
               <div className="flex items-center justify-between px-2">
                 <h2 className="text-2xl font-black">
-                  Mejores Ofertas en TechNova
+                  Mejores Ofertas en {store.name}
                 </h2>
                 <select className="border-primary/10 focus:border-primary rounded-xl border-2 bg-white px-4 py-2 text-xs font-bold tracking-widest uppercase transition-all outline-none dark:bg-slate-900">
                   <option>Menor Precio</option>
@@ -309,58 +346,90 @@ export default function StoreProfilePage() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {store.deals.map((deal, i) => (
-                  <div
-                    key={i}
-                    className="group border-primary/5 relative flex gap-6 overflow-hidden rounded-3xl border bg-white p-5 transition-all hover:shadow-2xl dark:bg-slate-900"
-                  >
-                    <div className="relative h-28 w-28 flex-shrink-0 overflow-hidden rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
-                      <Image
-                        src={deal.image}
-                        alt={deal.name}
-                        fill
-                        className="object-contain transition-transform group-hover:scale-110"
-                      />
-                    </div>
-                    <div className="flex flex-1 flex-col justify-between py-1">
-                      <div>
-                        <h3 className="group-hover:text-primary leading-tight font-bold text-slate-900 transition-colors dark:text-white">
-                          {deal.name}
-                        </h3>
-                        <div className="mt-3 flex items-center gap-3">
-                          <span className="text-primary text-xl font-black">
-                            ${deal.price.toLocaleString('es-CL')}
-                          </span>
-                          {deal.oldPrice && (
-                            <span className="text-sm font-medium text-slate-400 line-through">
-                              ${deal.oldPrice.toLocaleString('es-CL')}
-                            </span>
-                          )}
-                          {deal.badge && (
-                            <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-black tracking-tighter text-emerald-600 uppercase dark:text-emerald-400">
-                              {deal.badge}
+              {productSources.length === 0 ? (
+                <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 py-16 text-center dark:border-slate-800 dark:bg-slate-900/40">
+                  <span className="material-symbols-outlined mb-4 block text-4xl text-slate-300">
+                    inventory_2
+                  </span>
+                  <p className="text-sm font-bold text-slate-500">
+                    No hay productos disponibles en esta tienda
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  {productSources.map((source) => {
+                    const product = source.products
+                    if (!product) return null
+                    const href = source.url ?? `/producto/${product.slug}`
+                    return (
+                      <a
+                        key={source.id}
+                        href={href}
+                        target={source.url ? '_blank' : undefined}
+                        rel={source.url ? 'noopener noreferrer' : undefined}
+                        className="group border-primary/5 relative flex gap-6 overflow-hidden rounded-3xl border bg-white p-5 transition-all hover:shadow-2xl dark:bg-slate-900"
+                      >
+                        <div className="relative h-28 w-28 flex-shrink-0 overflow-hidden rounded-2xl bg-slate-50 dark:bg-slate-800">
+                          {product.image_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={product.image_url}
+                              alt={product.name}
+                              referrerPolicy="no-referrer"
+                              className="h-full w-full object-contain p-3 transition-transform group-hover:scale-110"
+                            />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center">
+                              <span className="material-icons text-4xl text-slate-300">
+                                image
+                              </span>
                             </span>
                           )}
                         </div>
-                      </div>
-                      <button className="hover:bg-primary mt-4 w-full transform rounded-xl bg-slate-50 py-3 text-xs font-black text-slate-900 shadow-sm transition-all hover:text-white active:scale-95 dark:bg-slate-800 dark:text-white">
-                        Ver Oferta
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                        <div className="flex flex-1 flex-col justify-between py-1">
+                          <div>
+                            <h3 className="group-hover:text-primary leading-tight font-bold text-slate-900 transition-colors dark:text-white">
+                              {product.name}
+                            </h3>
+                            <div className="mt-3 flex items-center gap-3">
+                              {source.price !== null && (
+                                <span className="text-primary text-xl font-black">
+                                  ${source.price.toLocaleString('es-CL')}
+                                </span>
+                              )}
+                              {source.original_price !== null &&
+                                source.original_price > (source.price ?? 0) && (
+                                  <span className="text-sm font-medium text-slate-400 line-through">
+                                    $
+                                    {source.original_price.toLocaleString(
+                                      'es-CL',
+                                    )}
+                                  </span>
+                                )}
+                            </div>
+                          </div>
+                          <Link
+                            href={`/producto/${product.slug}`}
+                            className="hover:bg-primary mt-4 w-full transform rounded-xl bg-slate-50 py-3 text-center text-xs font-black text-slate-900 shadow-sm transition-all hover:text-white active:scale-95 dark:bg-slate-800 dark:text-white"
+                          >
+                            Ver Oferta
+                          </Link>
+                        </div>
+                      </a>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
-            {/* Recent Reviews Summary */}
+            {/* Reviews */}
             <div className="space-y-8">
               <div className="flex items-center justify-between px-2">
                 <h2 className="text-2xl font-black">
                   Experiencias de Clientes
                 </h2>
                 <Link
-                  href="/escribir-resena"
+                  href={`/tienda/${slug}/review`}
                   className="text-primary flex items-center gap-2 text-sm font-black hover:underline"
                 >
                   <span className="material-icons text-sm">edit</span> Escribir
@@ -368,62 +437,113 @@ export default function StoreProfilePage() {
                 </Link>
               </div>
 
-              <div className="space-y-6">
-                {/* Review Item */}
-                <div className="border-primary/5 rounded-3xl border bg-white p-8 shadow-sm transition-shadow hover:shadow-md dark:bg-slate-900">
-                  <div className="mb-6 flex items-start justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="bg-primary/10 text-primary flex h-12 w-12 items-center justify-center rounded-2xl text-xl font-black">
-                        JD
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white">
-                          James D.{' '}
-                          <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-black tracking-tighter text-white uppercase">
-                            Compra Verificada
-                          </span>
-                        </div>
-                        <p className="text-xs font-medium text-slate-500">
-                          Compró: NovaVision Monitor • Hace 2 días
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-0.5 text-amber-400">
-                      {[...Array(5)].map((_, i) => (
-                        <span
-                          key={i}
-                          className="material-symbols-outlined fill-1 text-sm"
-                        >
-                          star
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <p className="mb-6 text-base leading-relaxed text-slate-600 dark:text-slate-300">
-                    "Increíble velocidad de entrega. Pedí el martes por la
-                    mañana y llegó el miércoles por la tarde. El embalaje fue
-                    super robusto, con triple caja para el monitor. El soporte
-                    al cliente también me ayudó a cambiar mi dirección."
+              {storeReviews.length === 0 ? (
+                <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 py-16 text-center dark:border-slate-800 dark:bg-slate-900/40">
+                  <span className="material-symbols-outlined mb-4 block text-4xl text-slate-300">
+                    rate_review
+                  </span>
+                  <p className="text-sm font-bold text-slate-500">
+                    Aún no hay reseñas para esta tienda
                   </p>
-                  <div className="border-primary/5 flex flex-wrap gap-2 border-t pt-4">
-                    {['Envío Rápido', 'Gran Embalaje', 'Soporte Pro'].map(
-                      (tag) => (
-                        <span
-                          key={tag}
-                          className="rounded-xl bg-slate-50 px-4 py-1.5 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                        >
-                          {tag}
-                        </span>
-                      )
-                    )}
-                  </div>
+                  <Link
+                    href={`/tienda/${slug}/review`}
+                    className="text-primary mt-2 inline-block text-xs font-black tracking-widest uppercase hover:underline"
+                  >
+                    Sé el primero en opinar
+                  </Link>
                 </div>
+              ) : (
+                <div className="space-y-6">
+                  {storeReviews.map((review) => {
+                    const authorName = review.author_name || 'Usuario'
+                    const initials = authorName
+                      .split(' ')
+                      .map((w) => w[0])
+                      .slice(0, 2)
+                      .join('')
+                      .toUpperCase()
 
-                <button className="border-primary/10 hover:border-primary/30 hover:bg-primary/5 hover:text-primary w-full rounded-3xl border-2 border-dashed py-5 text-sm font-black tracking-widest text-slate-400 uppercase transition-all dark:text-slate-500">
-                  Cargar Más Reseñas
-                </button>
-              </div>
+                    return (
+                      <div
+                        key={review.id}
+                        className="border-primary/5 rounded-3xl border bg-white p-8 shadow-sm transition-shadow hover:shadow-md dark:bg-slate-900"
+                      >
+                        <div className="mb-6 flex items-start justify-between">
+                          <div className="flex items-center gap-4">
+                            {review.author_avatar ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={review.author_avatar}
+                                alt={authorName}
+                                referrerPolicy="no-referrer"
+                                className="h-12 w-12 rounded-2xl object-cover"
+                              />
+                            ) : (
+                              <div className="bg-primary/10 text-primary flex h-12 w-12 items-center justify-center rounded-2xl text-xl font-black">
+                                {initials}
+                              </div>
+                            )}
+                            <div>
+                              <div className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-white">
+                                {authorName}
+                                {review.is_verified_purchase && (
+                                  <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-black tracking-tighter text-white uppercase">
+                                    Compra Verificada
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs font-medium text-slate-500">
+                                {formatRelativeDate(review.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex gap-0.5 text-amber-400">
+                            {[...Array(5)].map((_, i) => (
+                              <span
+                                key={i}
+                                className={`material-symbols-outlined text-sm ${i < review.rating_overall ? 'fill-1' : ''}`}
+                              >
+                                star
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {review.body && (
+                          <p className="mb-6 text-base leading-relaxed text-slate-600 dark:text-slate-300">
+                            &ldquo;{review.body}&rdquo;
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
+
+                  <button className="border-primary/10 hover:border-primary/30 hover:bg-primary/5 hover:text-primary w-full rounded-3xl border-2 border-dashed py-5 text-sm font-black tracking-widest text-slate-400 uppercase transition-all dark:text-slate-500">
+                    Cargar Más Reseñas
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Información */}
+            {store.description && (
+              <div className="space-y-4 rounded-3xl border border-slate-100 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <h2 className="text-xl font-black">Sobre {store.name}</h2>
+                <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                  {store.description}
+                </p>
+                {store.website_url && (
+                  <a
+                    href={store.website_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary flex items-center gap-1 text-sm font-bold hover:underline"
+                  >
+                    <span className="material-icons text-sm">open_in_new</span>
+                    {store.website_url}
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -445,26 +565,17 @@ export default function StoreProfilePage() {
               </h4>
               <ul className="space-y-4 text-sm font-bold text-slate-500">
                 <li>
-                  <Link
-                    className="hover:text-primary transition-colors"
-                    href="#"
-                  >
+                  <Link className="hover:text-primary transition-colors" href="#">
                     Guía de Reseñas
                   </Link>
                 </li>
                 <li>
-                  <Link
-                    className="hover:text-primary transition-colors"
-                    href="#"
-                  >
+                  <Link className="hover:text-primary transition-colors" href="#">
                     Comprador Verificado
                   </Link>
                 </li>
                 <li>
-                  <Link
-                    className="hover:text-primary transition-colors"
-                    href="#"
-                  >
+                  <Link className="hover:text-primary transition-colors" href="#">
                     Para Tiendas
                   </Link>
                 </li>
@@ -476,26 +587,17 @@ export default function StoreProfilePage() {
               </h4>
               <ul className="space-y-4 text-sm font-bold text-slate-500">
                 <li>
-                  <Link
-                    className="hover:text-primary transition-colors"
-                    href="#"
-                  >
+                  <Link className="hover:text-primary transition-colors" href="#">
                     Contacto
                   </Link>
                 </li>
                 <li>
-                  <Link
-                    className="hover:text-primary transition-colors"
-                    href="#"
-                  >
+                  <Link className="hover:text-primary transition-colors" href="#">
                     Preguntas Frecuentes
                   </Link>
                 </li>
                 <li>
-                  <Link
-                    className="hover:text-primary transition-colors"
-                    href="#"
-                  >
+                  <Link className="hover:text-primary transition-colors" href="#">
                     Reportar Tienda
                   </Link>
                 </li>
@@ -519,7 +621,7 @@ export default function StoreProfilePage() {
           </div>
           <div className="border-primary/5 flex flex-col items-center justify-between gap-6 border-t pt-8 md:flex-row">
             <p className="text-xs font-bold tracking-widest text-slate-400 uppercase">
-              © 2026 Revius.cl - Reputación que Importa.
+              © {new Date().getFullYear()} Revius.cl - Reputación que Importa.
             </p>
             <div className="flex gap-8 text-xs font-black tracking-widest text-slate-400 uppercase">
               <Link className="hover:text-primary transition-colors" href="#">

@@ -21,165 +21,129 @@ Revius centraliza las reviews y asigna un **credibility score** a cada una, calc
 |---|---|
 | Frontend + Backend | Next.js (App Router) — monolito en Vercel |
 | Base de datos | Supabase (PostgreSQL managed) |
-| Auth | Supabase Auth (OAuth + magic link) |
+| Auth | Supabase Auth (email + Google OAuth) |
 | Storage | Supabase Storage (imágenes de productos) |
 | IA / Análisis de reviews | Anthropic API — **claude-haiku-4-5-20251001** |
 | Deploy | Vercel |
 
 ---
 
-## Monetización
+## Estado actual del proyecto
 
-### Quick wins v1 (implementar primero)
+### ✅ Implementado y funcionando
+- Schema v2 completo en Supabase con RLS, triggers y vistas
+- Slugs auto-generados en products (función slugify + unaccent)
+- Clientes Supabase (client.ts, server.ts con createServiceClient)
+- Middleware de auth — protege /perfil, /escribir-resena, /dashboard-tienda
+- analyze-review.ts con Anthropic Haiku (background, Promise.race 8s)
+- POST /api/product-reviews con análisis integrado
+- CredibilityBadge (4 estados: Alta/Media/Baja/Analizando)
+- ReviewCard + ReviewList con ReliabilitySummary
+- Página /producto/[slug] con datos reales de Supabase
+- Home conectado a Supabase (productos hot, tiendas verificadas)
+- Auth funcional (login/register con email, Google OAuth)
+- NavUser Server Component — muestra sesión correcta
+- Formulario de review /producto/[slug]/review conectado al API
+- Perfil de usuario /perfil con datos reales
+- Tabla product_requests para solicitudes de productos
 
-**1. Links de afiliados — Mercado Libre**
-- Programa: Mercado Libre Affiliates (mercadolibre.cl/afiliados)
-- Comisiones: 1%–12% según categoría
-- Implementación: campo `affiliate_url` en `product_sources` con el link del producto + parámetro de afiliado embebido. El botón del carrito apunta a `affiliate_url` cuando existe, a `url` cuando no.
-- Sin aprobación previa — se puede integrar de inmediato con la API pública de ML.
-
-**2. Tiendas verificadas**
-- Las tiendas pagan suscripción mensual (~$50.000–$150.000 CLP/mes) para aparecer con badge "Tienda Verificada Revius" y acceder a métricas de sus reviews.
-- El campo `is_verified` en la tabla `stores` ya existe — solo falta el flujo de pago y el badge visual.
-- No requiere infraestructura adicional, es un acuerdo comercial directo.
-
-### Roadmap de monetización (mediano/largo plazo)
-
-**3. Afiliados Falabella / Ripley / Paris**
-- Vía CJ Affiliate o Awin. Requiere aplicación y aprobación.
-- Priorizar cuando haya tracción de usuarios (>10.000 MAU).
-
-**4. Plan premium para usuarios**
-- Filtros avanzados, historial de precios, alertas de baja de precio.
-- El campo `level = 'premium'` en `users` ya está en el schema.
-- Implementar con Stripe o Flow (Chile) cuando haya demanda real.
-
-**5. Inteligencia de mercado B2B**
-- Vender insights a marcas y retailers: qué dicen los usuarios de sus productos, comparativas vs competencia, tópicos más mencionados.
-- Se construye solo mientras crece la base de reviews — no requiere implementación adicional hoy.
-- Es el negocio diferenciador a largo plazo: nadie en Chile lo hace bien.
-
-**6. Publicidad nativa contextual**
-- "Productos patrocinados" claramente marcados en resultados de búsqueda.
-- Similar a Google Shopping. Las tiendas pagan por aparecer primero en su categoría.
-- Ya existe `partner_ads` como concepto en el backlog — implementar cuando haya volumen.
-
-### Cambios de schema pendientes para afiliados
-```sql
--- Agregar a product_sources:
-ALTER TABLE public.product_sources
-  ADD COLUMN IF NOT EXISTS affiliate_url text,
-  ADD COLUMN IF NOT EXISTS affiliate_program text; -- 'mercadolibre' | 'falabella' | 'amazon' etc
-
--- Lógica en UI: mostrar affiliate_url si existe, url como fallback
-```
+### 🔄 Pendiente v1
+- [ ] Fix ReviewCard — mostrar author_name real (actualmente muestra "Usuario")
+- [ ] Script de importación desde API Mercado Libre
+- [ ] Página perfil de tienda /tienda/[slug]
+- [ ] Deploy a Vercel con variables de entorno
 
 ---
 
-## Estructura de carpetas esperada
+## Estructura de carpetas
 
 ```
 /
 ├── app/
 │   ├── (auth)/
-│   │   ├── login/
-│   │   └── register/
+│   │   ├── login/page.tsx             # ✅ Email + Google OAuth
+│   │   └── register/page.tsx          # ✅ Registro con email
+│   ├── auth/callback/route.ts         # ✅ OAuth callback
 │   ├── (main)/
-│   │   ├── page.tsx                   # Home / productos hot, tendencias
-│   │   ├── productos/
+│   │   ├── page.tsx                   # ✅ Home con datos reales
+│   │   ├── producto/
 │   │   │   └── [slug]/
-│   │   │       └── page.tsx           # ✅ Implementado — datos reales de Supabase
+│   │   │       ├── page.tsx           # ✅ Detalle producto
+│   │   │       └── review/page.tsx    # ✅ Formulario review
 │   │   ├── tienda/
 │   │   │   └── [slug]/
-│   │   │       └── page.tsx           # Perfil de tienda + store reviews
-│   │   └── perfil/
-│   │       └── page.tsx               # Perfil de usuario
+│   │   │       └── page.tsx           # Perfil tienda (pendiente)
+│   │   ├── perfil/page.tsx            # ✅ Perfil usuario
+│   │   └── escribir-resena/page.tsx   # ✅ Buscador de productos
 │   └── api/
-│       ├── product-reviews/
-│       │   ├── route.ts               # ✅ Implementado — GET + POST con análisis Anthropic
-│       │   └── [id]/
-│       │       └── route.ts
-│       ├── store-reviews/
-│       │   ├── route.ts
-│       │   └── [id]/
-│       │       └── route.ts
-│       ├── products/
-│       │   ├── route.ts
-│       │   └── [id]/
-│       │       └── route.ts
-│       ├── stores/
-│       │   └── route.ts
-│       ├── votes/
-│       │   └── route.ts
-│       └── favorites/
-│           └── route.ts
+│       ├── product-reviews/route.ts   # ✅ GET + POST con Anthropic
+│       └── product-reviews/[id]/route.ts
 ├── components/
 │   ├── ui/
-│   │   └── DarkModeToggle.tsx         # ✅ Implementado
+│   │   ├── DarkModeToggle.tsx         # ✅
+│   │   ├── NavUser.tsx                # ✅ Server Component
+│   │   └── SignOutButton.tsx          # ✅ Client Component
 │   ├── reviews/
-│   │   ├── CredibilityBadge.tsx       # ✅ Implementado
-│   │   ├── ReviewCard.tsx             # ✅ Implementado
-│   │   └── ReviewList.tsx             # ✅ Implementado
-│   ├── products/
-│   └── stores/
+│   │   ├── CredibilityBadge.tsx       # ✅
+│   │   ├── ReviewCard.tsx             # ✅ (fix author_name pendiente)
+│   │   └── ReviewList.tsx             # ✅
+│   └── products/
 ├── lib/
 │   ├── supabase/
-│   │   ├── client.ts                  # ✅ Implementado
-│   │   ├── server.ts                  # ✅ Implementado (incluye createServiceClient)
-│   │   └── middleware.ts              # ✅ Implementado
-│   ├── anthropic/
-│   │   └── analyze-review.ts         # ✅ Implementado
-│   └── utils.ts
-├── types/
-│   └── database.ts
-├── middleware.ts                      # ✅ Implementado
+│   │   ├── client.ts                  # ✅
+│   │   ├── server.ts                  # ✅ (createClient + createServiceClient)
+│   │   └── middleware.ts              # ✅
+│   └── anthropic/
+│       └── analyze-review.ts          # ✅
+├── middleware.ts                       # ✅
 └── CLAUDE.md
 ```
 
 ---
 
-## Modelo de datos (schema v2 — ya aplicado en Supabase)
+## Modelo de datos (schema v2 — aplicado en Supabase)
 
 ### Tablas principales
 
 | Tabla | Descripción |
 |---|---|
-| `categories` | Categorías jerárquicas (parent_id null = raíz). Ej: Tecnología > Audio |
-| `stores` | Tiendas con perfil propio, métricas de reputación, verificación |
-| `users` | Perfil público, extiende auth.users. Incluye level y reputation |
-| `user_badges` | Insignias ganadas por actividad |
-| `followers` | Relación seguidor/seguido entre usuarios |
-| `products` | Catálogo con slug auto-generado, badge editorial, category_id |
-| `product_sources` | Precios por tienda. Pendiente: agregar affiliate_url, affiliate_program |
-| `product_reviews` | Reviews de productos con credibility_score |
+| `categories` | Jerárquicas — parent_id null = raíz (Tecnología, Estilo de Vida, Hogar) |
+| `stores` | Tiendas verificadas con métricas de reputación |
+| `users` | Perfil público. level auto-calculado por trigger |
+| `user_badges` | Insignias por actividad |
+| `followers` | Seguidor/seguido entre usuarios |
+| `products` | Catálogo curado. slug auto-generado. badge editorial |
+| `product_sources` | Precios por tienda. Pendiente: affiliate_url, affiliate_program |
+| `product_reviews` | Reviews con credibility_score calculado por Anthropic |
 | `review_analysis` | Análisis Anthropic (ai_generated_prob, bias, topics, sentiment) |
-| `store_reviews` | Reviews de experiencia de compra. Ratings por dimensión |
-| `votes` | helpful/not-helpful para ambos tipos de review |
-| `favorites` | Productos y tiendas favoritos |
+| `store_reviews` | Reviews de tiendas con ratings por dimensión |
+| `votes` | helpful/not-helpful — una tabla para ambos tipos de review |
+| `favorites` | Productos y tiendas favoritos — una tabla, dos FK opcionales |
+| `product_requests` | Solicitudes de usuarios para agregar productos al catálogo |
 
 ### Vistas disponibles
 
 | Vista | Uso |
 |---|---|
-| `product_reviews_full` | Reviews con autor y análisis incluidos |
+| `product_reviews_full` | Reviews con autor (author_name, author_avatar, author_level) y análisis |
 | `store_reviews_full` | Reviews de tienda con autor |
 | `products_with_category` | Productos con breadcrumb (category + parent) |
 
 ### Slugs de productos
-- Campo `slug` en `products` — auto-generado por trigger desde `name`
-- Función `slugify()` usa `unaccent` + regexp para limpiar acentos y caracteres especiales
-- Colapsa múltiples guiones en uno
-- URL de producto: `/producto/[slug]`
+- Campo `slug` en `products` — auto-generado por trigger `auto_slug_products`
+- Función `slugify()` usa extensión `unaccent` + regexp
+- Colapsa múltiples guiones: `sonicpro-ultra-x1-audifonos-noise-cancelling`
+- URL: `/producto/[slug]`
 
-### Niveles de usuario
+### Niveles de usuario (trigger automático)
 
-| Level | Reviews necesarias |
+| Level | Reviews |
 |---|---|
 | `bronce` | 0–9 |
 | `plata` | 10–19 |
 | `oro` | 20–49 |
 | `experto` | 50+ |
-| `premium` | Manual vía service role (futuro: pago) |
+| `premium` | Manual vía service role |
 
 ---
 
@@ -189,40 +153,62 @@ ALTER TABLE public.product_sources
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=       # sb_publishable_...
 SUPABASE_SERVICE_ROLE_KEY=           # sb_secret_...
-ANTHROPIC_API_KEY=
+ANTHROPIC_API_KEY=                   # sk-ant-...
 ```
 
 **Regla:** `ANTHROPIC_API_KEY` y `SUPABASE_SERVICE_ROLE_KEY` nunca en Client Components.
 
 ---
 
-## Flujo principal: creación de una product review
+## Flujo: creación de una product review
 
 ```
 POST /api/product-reviews
-  ├─ 1. Validar input (rating 1-5, body ≥50 chars)
-  ├─ 2. Insertar review (credibility_score = null)
-  ├─ 3. Responder 201 al usuario inmediatamente
-  └─ 4. runAnalysis() en background sin await:
-         ├─ Llamar Anthropic Haiku → analyze-review.ts
-         ├─ Insertar en review_analysis (createServiceClient)
-         └─ Calcular y actualizar credibility_score
+  ├─ 1. Verificar sesión (401 si no hay)
+  ├─ 2. Validar input (rating 1-5, body ≥50 chars)
+  ├─ 3. Insertar en product_reviews (credibility_score = null)
+  ├─ 4. Promise.race([runAnalysis(), setTimeout(8000)])
+  │      └─ runAnalysis() con createServiceClient():
+  │           ├─ Llamar Anthropic Haiku → analyze-review.ts
+  │           ├─ Strip markdown fences del JSON response
+  │           ├─ Insert en review_analysis
+  │           └─ Calcular y update credibility_score
+  └─ 5. Responder 201 → cliente redirige a /producto/[slug]?review=success
 ```
 
 ## Lógica del credibility_score
 
 ```
 credibility_score =
-  (1 - ai_generated_prob) * 0.5   // 50%: no parece IA
-  + helpful_ratio * 0.3            // 30%: votos útiles
-  + (is_verified_purchase ? 0.2 : 0) // 20%: compra verificada
+  (1 - ai_generated_prob) * 0.6
+  + (is_verified_purchase ? 0.25 : 0.15)  // piso de 0.15 para reviews nuevas
+  + helpful_ratio * 0.15
 ```
+
+## Umbrales del CredibilityBadge
+
+| Badge | Score | Color |
+|---|---|---|
+| Alta confiabilidad | ≥ 0.65 | Verde |
+| Confiabilidad media | ≥ 0.40 | Ámbar |
+| Baja confiabilidad | < 0.40 | Rojo |
+| Analizando... | null | Gris |
 
 ---
 
 ## analyze-review.ts — prompt de Anthropic
 
 Modelo: `claude-haiku-4-5-20251001` | Max tokens: `300`
+
+**Importante:** Haiku a veces devuelve JSON envuelto en ```json ... ```.
+Siempre hacer strip antes de JSON.parse:
+```typescript
+const rawText = content.text
+  .replace(/^```json\s*/i, '')
+  .replace(/^```\s*/i, '')
+  .replace(/```\s*$/i, '')
+  .trim()
+```
 
 **System prompt:**
 ```
@@ -243,79 +229,102 @@ Para ai_generated_prob considera: lenguaje demasiado perfecto o genérico,
 ausencia de detalles personales concretos, estructura excesivamente formal,
 uso de frases típicas de IA como "en conclusión" o "en general este producto".
 Sé equilibrado — no penalices reviews bien escritas por ser claras.
+Sé generoso en tu evaluación. Reserva ai_generated_prob > 0.7 solo para
+casos muy evidentes: texto copiado, frases típicas de IA, ausencia total
+de experiencia personal. Una review corta pero genuina no es necesariamente
+poco confiable.
 ```
 
-**User message:**
-```
-Analiza esta review:
-Producto: {product_name}
-Rating: {rating}/5
-Título: {title}
-Review: {body}
-```
+---
+
+## Gestión del catálogo de productos
+
+**Decisión:** Catálogo curado — no se permite a usuarios agregar productos libremente para evitar duplicados y desorden.
+
+**Flujo de solicitudes:**
+1. Usuario busca producto → no existe → "Solicitar este producto"
+2. Rellena nombre, marca, URL de referencia → se crea registro en `product_requests`
+3. Admin aprueba/rechaza desde `/admin/productos/solicitudes`
+4. Al aprobar: producto se crea en el catálogo usando datos de ML API o los ingresados
+
+**Contenido inicial:** Script de importación desde API Mercado Libre (pendiente implementar).
+- API pública, gratuita, legal
+- `GET https://api.mercadolibre.com/sites/MLC/search?category=MLC1051&limit=50`
+- Categorías iniciales: Audio (MLC1051), Celulares (MLC1648), Computación (MLC1652)
+
+---
+
+## Monetización
+
+### v1 — Quick wins
+1. **Afiliados Mercado Libre** — campo `affiliate_url` en `product_sources` (pendiente agregar al schema)
+2. **Tiendas verificadas** — `is_verified` ya existe en `stores`, falta flujo de pago
+
+### Roadmap
+3. Afiliados Falabella/Ripley (requiere aprobación, post-tracción)
+4. Plan premium usuarios (Stripe o Flow)
+5. Inteligencia de mercado B2B
+6. Publicidad nativa contextual
 
 ---
 
 ## Convenciones de código
 
 - TypeScript estricto (`strict: true`)
-- Server Components por defecto — `"use client"` solo cuando sea necesario
-- Route handlers usan `createClient()` de server, operaciones privilegiadas usan `createServiceClient()`
-- Análisis Anthropic siempre en background — nunca bloquear respuesta al usuario
-- Usar vistas de Supabase para queries complejas
-- Kebab-case para archivos, PascalCase para componentes
+- Server Components por defecto — `"use client"` solo cuando necesario
+- Route handlers: `createClient()` para lecturas, `createServiceClient()` para escrituras privilegiadas
+- Análisis Anthropic siempre en background con Promise.race
+- Vistas de Supabase para queries complejas
+- Kebab-case archivos, PascalCase componentes
 - Imports con alias `@/`
-- Errores siempre manejados explícitamente
+- Errores siempre manejados — no catch vacíos
+- Imágenes externas: `<img referrerPolicy="no-referrer">` en lugar de `<Image>` de Next.js
 
 ---
 
-## Decisiones de arquitectura tomadas
+## Decisiones de arquitectura
 
 | Decisión | Elección | Razón |
 |---|---|---|
 | Backend | Monolito Next.js | Suficiente para esta etapa |
 | DB | Supabase | PostgreSQL + auth + storage en uno |
-| Modelo IA | claude-haiku-4-5-20251001 | ~$0,0006 USD/review. A 10k reviews/mes = ~$5.700 CLP |
+| Modelo IA | claude-haiku-4-5-20251001 | ~$0,0006 USD/review. $5 USD = 8.000+ análisis |
 | Deploy | Vercel | Integración nativa con Next.js |
-| Auth | Supabase Auth | Evita implementar auth propio |
+| Auth | Supabase Auth | Email + Google OAuth sin implementar auth propio |
 | Reviews | Tablas separadas (product_reviews / store_reviews) | Modelos distintos |
 | Votes / Favorites | Una tabla con dos FK opcionales | Más simple |
-| Análisis | Background async | No bloquear UX |
+| Análisis | Background async con Promise.race 8s | No bloquear UX |
 | Slugs | Auto-generados por trigger desde name | URLs legibles y SEO-friendly |
-| Scraping | No implementar en v1 | Riesgo legal + mantenimiento alto. Usar API ML + afiliados primero |
-| Replies en reviews | No implementar por ahora | Feature de retención post-tracción. Schema futuro: `review_replies` con `review_id` + `parent_reply_id` opcional |
+| Catálogo | Curado por admin + solicitudes de usuarios | Evitar duplicados y desorden |
+| Scraping | No en v1 | Riesgo legal + mantenimiento. Usar API ML primero |
+| Replies en reviews | No implementar por ahora | Post-tracción. Schema futuro: `review_replies` con `review_id` + `parent_reply_id` |
 
 ---
 
 ## Backlog
 
-### v1 — Para salir a producción
-- [x] Schema v2 en Supabase
-- [x] Slugs auto-generados en products
-- [x] Clientes Supabase + middleware auth
-- [x] analyze-review.ts (Anthropic Haiku, background)
-- [x] POST /api/product-reviews
-- [x] CredibilityBadge + ReviewCard + ReviewList
-- [x] Página /producto/[slug] con datos reales
-- [ ] Agregar affiliate_url + affiliate_program a product_sources
-- [ ] Integración API Mercado Libre (productos + precios + affiliate links)
-- [ ] Formulario de review (/producto/[slug]/review)
-- [ ] Página perfil de tienda (/tienda/[slug])
-- [ ] Auth funcional (login/register con Supabase)
-- [ ] Badge "Tienda Verificada" visible en UI
+### v1 — Para lanzamiento
+- [x] Schema v2 + slugs + product_requests
+- [x] Auth completo (email + Google)
+- [x] Home, producto, formulario, perfil conectados a Supabase
+- [x] Flujo end-to-end: review → Anthropic → credibility score → badge
+- [x] Fix ReviewCard author_name
+- [ ] Script importación ML (200-300 productos iniciales)
+- [ ] Página /tienda/[slug]
+- [ ] Agregar affiliate_url a product_sources
+- [ ] Deploy a Vercel
 
 ### v2 — Post-lanzamiento
-- [ ] Sistema de votos (helpful/not helpful)
-- [ ] Favoritos (productos y tiendas)
-- [ ] Búsqueda full-text (pg_trgm ya habilitado)
-- [ ] Perfil de usuario con niveles y badges
-- [ ] Afiliados Falabella / Ripley (requiere aprobación)
-- [ ] Plan premium usuarios (Stripe o Flow)
+- [ ] Sistema de votos
+- [ ] Favoritos funcionales
+- [ ] Búsqueda full-text
+- [ ] Panel admin /admin/productos/solicitudes
+- [ ] Afiliados Falabella/Ripley
+- [ ] Plan premium (Stripe o Flow)
 
 ### Backlog futuro
-- [ ] Inteligencia de mercado B2B (insights para marcas)
-- [ ] Publicidad nativa contextual (productos patrocinados)
-- [ ] Extensión de browser
+- [ ] Inteligencia de mercado B2B
+- [ ] Publicidad nativa contextual
 - [ ] Historial de precios
 - [ ] Alertas de baja de precio
 - [ ] Replies en reviews
@@ -323,4 +332,4 @@ Review: {body}
 
 ---
 
-*Última actualización: estrategia de monetización definida, quick wins v1 identificados.*
+*Última actualización: flujo end-to-end funcionando, catálogo curado definido, product_requests creado.*
