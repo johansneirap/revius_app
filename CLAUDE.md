@@ -13,6 +13,9 @@ Plataforma de reviews de productos de retail y comercio general. Ataca dos probl
 
 Revius centraliza las reviews y asigna un **credibility score** a cada una, calculado con análisis de lenguaje via API de Anthropic.
 
+**URL producción:** https://revius.cl
+**URL staging:** pendiente configurar (dev.revius.cl)
+
 ---
 
 ## Stack
@@ -24,34 +27,30 @@ Revius centraliza las reviews y asigna un **credibility score** a cada una, calc
 | Auth | Supabase Auth (email + Google OAuth) |
 | Storage | Supabase Storage (imágenes de productos) |
 | IA / Análisis de reviews | Anthropic API — **claude-haiku-4-5-20251001** |
-| Deploy | Vercel |
+| Deploy | Vercel (main → revius.cl, dev → dev.revius.cl pendiente) |
 
 ---
 
-## Estado actual del proyecto
+## Estado actual del proyecto (v1 desplegada en producción)
 
 ### ✅ Implementado y funcionando
 - Schema v2 completo en Supabase con RLS, triggers y vistas
 - Slugs auto-generados en products (función slugify + unaccent)
 - Clientes Supabase (client.ts, server.ts con createServiceClient)
-- Middleware de auth — protege /perfil, /escribir-resena, /dashboard-tienda
+- Middleware de auth
 - analyze-review.ts con Anthropic Haiku (background, Promise.race 8s)
 - POST /api/product-reviews con análisis integrado
 - CredibilityBadge (4 estados: Alta/Media/Baja/Analizando)
 - ReviewCard + ReviewList con ReliabilitySummary
-- Página /producto/[slug] con datos reales de Supabase
-- Home conectado a Supabase (productos hot, tiendas verificadas)
-- Auth funcional (login/register con email, Google OAuth)
-- NavUser Server Component — muestra sesión correcta
-- Formulario de review /producto/[slug]/review conectado al API
+- Página /producto/[slug] con datos reales
+- Página /tienda/[slug] con datos reales
+- Home conectado a Supabase
+- Auth funcional (email + Google OAuth)
+- NavUser Server Component
+- Formulario de review conectado al API
 - Perfil de usuario /perfil con datos reales
 - Tabla product_requests para solicitudes de productos
-
-### 🔄 Pendiente v1
-- [ ] Fix ReviewCard — mostrar author_name real (actualmente muestra "Usuario")
-- [ ] Script de importación desde API Mercado Libre
-- [ ] Página perfil de tienda /tienda/[slug]
-- [ ] Deploy a Vercel con variables de entorno
+- Deploy en revius.cl con variables de entorno configuradas
 
 ---
 
@@ -61,40 +60,46 @@ Revius centraliza las reviews y asigna un **credibility score** a cada una, calc
 /
 ├── app/
 │   ├── (auth)/
-│   │   ├── login/page.tsx             # ✅ Email + Google OAuth
-│   │   └── register/page.tsx          # ✅ Registro con email
-│   ├── auth/callback/route.ts         # ✅ OAuth callback
+│   │   ├── login/page.tsx             # ✅
+│   │   └── register/page.tsx          # ✅
+│   ├── auth/callback/route.ts         # ✅
 │   ├── (main)/
-│   │   ├── page.tsx                   # ✅ Home con datos reales
-│   │   ├── producto/
-│   │   │   └── [slug]/
-│   │   │       ├── page.tsx           # ✅ Detalle producto
-│   │   │       └── review/page.tsx    # ✅ Formulario review
-│   │   ├── tienda/
-│   │   │   └── [slug]/
-│   │   │       └── page.tsx           # Perfil tienda (pendiente)
-│   │   ├── perfil/page.tsx            # ✅ Perfil usuario
-│   │   └── escribir-resena/page.tsx   # ✅ Buscador de productos
+│   │   ├── page.tsx                   # ✅ Home
+│   │   ├── producto/[slug]/
+│   │   │   ├── page.tsx               # ✅ Detalle producto
+│   │   │   └── review/page.tsx        # ✅ Formulario review
+│   │   ├── tienda/[slug]/
+│   │   │   ├── page.tsx               # ✅ Perfil tienda
+│   │   │   └── review/page.tsx        # ✅ Placeholder
+│   │   ├── perfil/page.tsx            # ✅
+│   │   ├── escribir-resena/page.tsx   # ✅ Buscador productos
+│   │   ├── tendencias/page.tsx        # ⬜ Pendiente
+│   │   ├── cupones/page.tsx           # ⬜ Pendiente
+│   │   └── admin/
+│   │       └── productos/
+│   │           └── solicitudes/       # ⬜ Pendiente
 │   └── api/
-│       ├── product-reviews/route.ts   # ✅ GET + POST con Anthropic
+│       ├── product-reviews/route.ts   # ✅
 │       └── product-reviews/[id]/route.ts
 ├── components/
 │   ├── ui/
-│   │   ├── DarkModeToggle.tsx         # ✅
-│   │   ├── NavUser.tsx                # ✅ Server Component
-│   │   └── SignOutButton.tsx          # ✅ Client Component
+│   │   ├── DarkModeToggle.tsx         # ✅ (bug pendiente de corregir)
+│   │   ├── NavUser.tsx                # ✅
+│   │   └── SignOutButton.tsx          # ✅
 │   ├── reviews/
 │   │   ├── CredibilityBadge.tsx       # ✅
-│   │   ├── ReviewCard.tsx             # ✅ (fix author_name pendiente)
+│   │   ├── ReviewCard.tsx             # ✅
 │   │   └── ReviewList.tsx             # ✅
 │   └── products/
 ├── lib/
 │   ├── supabase/
 │   │   ├── client.ts                  # ✅
-│   │   ├── server.ts                  # ✅ (createClient + createServiceClient)
+│   │   ├── server.ts                  # ✅
 │   │   └── middleware.ts              # ✅
 │   └── anthropic/
 │       └── analyze-review.ts          # ✅
+├── scripts/
+│   └── import-ml-products.ts          # ⬜ Pendiente (403 ML API)
 ├── middleware.ts                       # ✅
 └── CLAUDE.md
 ```
@@ -107,7 +112,7 @@ Revius centraliza las reviews y asigna un **credibility score** a cada una, calc
 
 | Tabla | Descripción |
 |---|---|
-| `categories` | Jerárquicas — parent_id null = raíz (Tecnología, Estilo de Vida, Hogar) |
+| `categories` | Jerárquicas — Tecnología, Estilo de Vida, Hogar |
 | `stores` | Tiendas verificadas con métricas de reputación |
 | `users` | Perfil público. level auto-calculado por trigger |
 | `user_badges` | Insignias por actividad |
@@ -125,17 +130,11 @@ Revius centraliza las reviews y asigna un **credibility score** a cada una, calc
 
 | Vista | Uso |
 |---|---|
-| `product_reviews_full` | Reviews con autor (author_name, author_avatar, author_level) y análisis |
+| `product_reviews_full` | Reviews con autor y análisis |
 | `store_reviews_full` | Reviews de tienda con autor |
-| `products_with_category` | Productos con breadcrumb (category + parent) |
+| `products_with_category` | Productos con breadcrumb |
 
-### Slugs de productos
-- Campo `slug` en `products` — auto-generado por trigger `auto_slug_products`
-- Función `slugify()` usa extensión `unaccent` + regexp
-- Colapsa múltiples guiones: `sonicpro-ultra-x1-audifonos-noise-cancelling`
-- URL: `/producto/[slug]`
-
-### Niveles de usuario (trigger automático)
+### Niveles de usuario
 
 | Level | Reviews |
 |---|---|
@@ -154,9 +153,8 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=       # sb_publishable_...
 SUPABASE_SERVICE_ROLE_KEY=           # sb_secret_...
 ANTHROPIC_API_KEY=                   # sk-ant-...
+NEXT_PUBLIC_APP_URL=                 # https://revius.cl en prod, http://localhost:3000 en local
 ```
-
-**Regla:** `ANTHROPIC_API_KEY` y `SUPABASE_SERVICE_ROLE_KEY` nunca en Client Components.
 
 ---
 
@@ -181,7 +179,7 @@ POST /api/product-reviews
 ```
 credibility_score =
   (1 - ai_generated_prob) * 0.6
-  + (is_verified_purchase ? 0.25 : 0.15)  // piso de 0.15 para reviews nuevas
+  + (is_verified_purchase ? 0.25 : 0.15)
   + helpful_ratio * 0.15
 ```
 
@@ -196,12 +194,11 @@ credibility_score =
 
 ---
 
-## analyze-review.ts — prompt de Anthropic
+## analyze-review.ts — notas importantes
 
 Modelo: `claude-haiku-4-5-20251001` | Max tokens: `300`
 
-**Importante:** Haiku a veces devuelve JSON envuelto en ```json ... ```.
-Siempre hacer strip antes de JSON.parse:
+Haiku a veces devuelve JSON con markdown fences — siempre hacer strip:
 ```typescript
 const rawText = content.text
   .replace(/^```json\s*/i, '')
@@ -210,75 +207,39 @@ const rawText = content.text
   .trim()
 ```
 
-**System prompt:**
-```
-Eres un analizador de reviews de productos. Tu tarea es evaluar la autenticidad
-y calidad de una review escrita por un usuario.
-
-Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown,
-sin explicaciones. El JSON debe tener exactamente esta estructura:
-
-{
-  "ai_generated_prob": <número entre 0 y 1>,
-  "detected_bias": <string describiendo el sesgo principal, o null si no hay>,
-  "detected_topics": <array de strings con los tópicos mencionados>,
-  "sentiment": <"positive" | "negative" | "neutral" | "mixed">
-}
-
-Para ai_generated_prob considera: lenguaje demasiado perfecto o genérico,
-ausencia de detalles personales concretos, estructura excesivamente formal,
-uso de frases típicas de IA como "en conclusión" o "en general este producto".
-Sé equilibrado — no penalices reviews bien escritas por ser claras.
-Sé generoso en tu evaluación. Reserva ai_generated_prob > 0.7 solo para
-casos muy evidentes: texto copiado, frases típicas de IA, ausencia total
-de experiencia personal. Una review corta pero genuina no es necesariamente
-poco confiable.
-```
-
 ---
 
-## Gestión del catálogo de productos
+## Gestión del catálogo
 
-**Decisión:** Catálogo curado — no se permite a usuarios agregar productos libremente para evitar duplicados y desorden.
+**Decisión:** Catálogo curado por admin. Usuarios pueden solicitar productos via `product_requests`, no agregarlos directamente. Evita duplicados y desorden.
 
-**Flujo de solicitudes:**
-1. Usuario busca producto → no existe → "Solicitar este producto"
-2. Rellena nombre, marca, URL de referencia → se crea registro en `product_requests`
-3. Admin aprueba/rechaza desde `/admin/productos/solicitudes`
-4. Al aprobar: producto se crea en el catálogo usando datos de ML API o los ingresados
-
-**Contenido inicial:** Script de importación desde API Mercado Libre (pendiente implementar).
-- API pública, gratuita, legal
-- `GET https://api.mercadolibre.com/sites/MLC/search?category=MLC1051&limit=50`
-- Categorías iniciales: Audio (MLC1051), Celulares (MLC1648), Computación (MLC1652)
+**Contenido inicial:** Script ML pendiente de resolver (403 en API de búsqueda sin OAuth completo). Productos actuales insertados manualmente.
 
 ---
 
 ## Monetización
 
-### v1 — Quick wins
-1. **Afiliados Mercado Libre** — campo `affiliate_url` en `product_sources` (pendiente agregar al schema)
-2. **Tiendas verificadas** — `is_verified` ya existe en `stores`, falta flujo de pago
+### v1 activa
+- Afiliados ML — pendiente agregar `affiliate_url` a `product_sources`
+- Tiendas verificadas — `is_verified` en schema, falta flujo de pago
 
 ### Roadmap
-3. Afiliados Falabella/Ripley (requiere aprobación, post-tracción)
-4. Plan premium usuarios (Stripe o Flow)
-5. Inteligencia de mercado B2B
-6. Publicidad nativa contextual
+- Afiliados Falabella/Ripley (post-tracción)
+- Plan premium usuarios (Stripe o Flow)
+- Cupones para compra online (feature pendiente)
+- Patrocinados / Oferta Partner (publicidad nativa)
+- Inteligencia de mercado B2B
 
 ---
 
 ## Convenciones de código
 
-- TypeScript estricto (`strict: true`)
-- Server Components por defecto — `"use client"` solo cuando necesario
-- Route handlers: `createClient()` para lecturas, `createServiceClient()` para escrituras privilegiadas
+- TypeScript estricto
+- Server Components por defecto
+- `createClient()` para lecturas, `createServiceClient()` para escrituras privilegiadas
 - Análisis Anthropic siempre en background con Promise.race
-- Vistas de Supabase para queries complejas
-- Kebab-case archivos, PascalCase componentes
-- Imports con alias `@/`
-- Errores siempre manejados — no catch vacíos
 - Imágenes externas: `<img referrerPolicy="no-referrer">` en lugar de `<Image>` de Next.js
+- Kebab-case archivos, PascalCase componentes, alias `@/`
 
 ---
 
@@ -288,48 +249,65 @@ poco confiable.
 |---|---|---|
 | Backend | Monolito Next.js | Suficiente para esta etapa |
 | DB | Supabase | PostgreSQL + auth + storage en uno |
-| Modelo IA | claude-haiku-4-5-20251001 | ~$0,0006 USD/review. $5 USD = 8.000+ análisis |
+| Modelo IA | claude-haiku-4-5-20251001 | ~$0,0006 USD/review |
 | Deploy | Vercel | Integración nativa con Next.js |
-| Auth | Supabase Auth | Email + Google OAuth sin implementar auth propio |
-| Reviews | Tablas separadas (product_reviews / store_reviews) | Modelos distintos |
-| Votes / Favorites | Una tabla con dos FK opcionales | Más simple |
-| Análisis | Background async con Promise.race 8s | No bloquear UX |
-| Slugs | Auto-generados por trigger desde name | URLs legibles y SEO-friendly |
-| Catálogo | Curado por admin + solicitudes de usuarios | Evitar duplicados y desorden |
-| Scraping | No en v1 | Riesgo legal + mantenimiento. Usar API ML primero |
-| Replies en reviews | No implementar por ahora | Post-tracción. Schema futuro: `review_replies` con `review_id` + `parent_reply_id` |
+| Dominios | revius.cl = app, landing.revius.cl = landing | App es el destino principal |
+| Catálogo | Curado por admin + solicitudes | Evitar duplicados |
+| Scraping | No en v1 | Riesgo legal, usar API ML primero |
+| Replies | No implementar por ahora | Post-tracción |
 
 ---
 
-## Backlog
+## Backlog completo
 
-### v1 — Para lanzamiento
-- [x] Schema v2 + slugs + product_requests
-- [x] Auth completo (email + Google)
-- [x] Home, producto, formulario, perfil conectados a Supabase
-- [x] Flujo end-to-end: review → Anthropic → credibility score → badge
-- [x] Fix ReviewCard author_name
-- [ ] Script importación ML (200-300 productos iniciales)
-- [ ] Página /tienda/[slug]
-- [ ] Agregar affiliate_url a product_sources
-- [ ] Deploy a Vercel
+### Inmediato — antes de traer usuarios
+- [ ] Cargar 100+ productos reales (resolver script ML o insertar manualmente)
+- [ ] Agregar `affiliate_url` y `affiliate_program` a `product_sources`
+- [ ] Activar links de afiliados ML en botones de compra
+- [ ] Configurar ambiente staging (dev branch → dev.revius.cl)
 
-### v2 — Post-lanzamiento
-- [ ] Sistema de votos
-- [ ] Favoritos funcionales
-- [ ] Búsqueda full-text
-- [ ] Panel admin /admin/productos/solicitudes
-- [ ] Afiliados Falabella/Ripley
-- [ ] Plan premium (Stripe o Flow)
+### UI/UX — funcionalidades pendientes
+- [ ] **Dark mode** — corregir bug, el toggle no persiste correctamente
+- [ ] **Navbar** — conectar todas las opciones:
+  - [ ] Categorías (Tecnología, Estilo de Vida, Hogar, Lo Mejor) → páginas de categoría
+  - [ ] Búsqueda — conectar buscador del navbar a resultados reales
+  - [ ] Notificaciones — ícono de campana funcional
+- [ ] **Búsqueda full-text** — página /buscar con resultados reales usando pg_trgm
+- [ ] **Tendencias** — página /tendencias con productos más revieweados y trending
+- [ ] **Cupones** — página /cupones con descuentos y códigos de tiendas asociadas
+- [ ] **Patrocinados** — feature de productos patrocinados en resultados de búsqueda
+- [ ] **Oferta Partner** — sidebar con ofertas de partners verificados (actualmente mock)
+- [ ] **Footer** — implementar páginas relevantes:
+  - [ ] /como-funciona
+  - [ ] /guia-de-resenas
+  - [ ] /terminos-de-servicio
+  - [ ] /privacidad
+  - [ ] /contacto
+  - [ ] /sobre-nosotros
+
+### Features de producto (v2)
+- [ ] **Resumen inteligente de reviews** — cuando un producto tiene 10+ reviews, Anthropic genera un resumen narrativo con pros, contras y % de confiabilidad. Es el diferenciador clave de Revius.
+- [ ] **Sistema de votos** — helpful/not helpful en reviews (mejora credibility_score)
+- [ ] **Favoritos funcionales** — guardar productos y tiendas
+- [ ] **Solicitar producto** — formulario para que usuarios pidan agregar productos al catálogo
+- [ ] **Panel admin** — /admin/productos/solicitudes para aprobar/rechazar solicitudes
+- [ ] **Historial de precios** — gráfico de evolución de precio por producto
+- [ ] **Alertas de precio** — notificar cuando baja el precio de un favorito
+
+### Operacional
+- [ ] **SEO** — metadata dinámica en páginas de producto (title, description, og:image)
+- [ ] **Ambiente staging** — dev branch → dev.revius.cl + Supabase separado para dev
+- [ ] **Tiendas verificadas** — flujo de pago para que tiendas se verifiquen
+- [ ] **Afiliados Falabella/Ripley** — aplicar cuando haya tracción (>10k MAU)
+- [ ] **Plan premium** — Stripe o Flow cuando haya demanda
 
 ### Backlog futuro
-- [ ] Inteligencia de mercado B2B
-- [ ] Publicidad nativa contextual
-- [ ] Historial de precios
-- [ ] Alertas de baja de precio
+- [ ] Inteligencia de mercado B2B (insights para marcas y retailers)
+- [ ] Extensión de browser
 - [ ] Replies en reviews
-- [ ] Notificaciones
+- [ ] Notificaciones push
+- [ ] App móvil
 
 ---
 
-*Última actualización: flujo end-to-end funcionando, catálogo curado definido, product_requests creado.*
+*Última actualización: v1 desplegada en revius.cl. Backlog completo con todas las features pendientes.*

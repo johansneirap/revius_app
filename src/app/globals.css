@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* Tailwind responde SOLO a la clase .dark en <html>, nunca a prefers-color-scheme */
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary: #135bec;
   --color-background-light: #f6f6f8;
@@ -10,38 +13,15 @@
   --radius-xl: 0.75rem;
 }
 
+/* Garantiza que el browser no aplique colores de sistema OS independientemente
+   de las clases de Tailwind (neutraliza @media prefers-color-scheme en dev) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  color-scheme: dark;
 }
 
 body {
   font-family: var(--font-display);
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
