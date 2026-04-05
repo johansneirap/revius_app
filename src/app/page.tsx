@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Logo from '@/components/Logo'
 import DarkModeToggle from '@/components/ui/DarkModeToggle'
 import NavUser from '@/components/ui/NavUser'
+import NavSearch, { SearchMobileTrigger } from '@/components/ui/NavSearch'
 import { createClient } from '@/lib/supabase/server'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -147,8 +148,8 @@ export default async function Home() {
 async function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-8 px-4">
-        <div className="flex flex-shrink-0 items-center gap-2">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4">
+        <div className="flex flex-shrink-0 items-center">
           <Logo />
         </div>
         <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
@@ -168,25 +169,19 @@ async function Header() {
             Lo Mejor
           </Link>
         </nav>
-        <div className="relative hidden max-w-md flex-grow lg:block">
-          <span className="material-icons absolute top-1/2 left-3 -translate-y-1/2 text-slate-400">
-            search
-          </span>
-          <input
-            type="text"
-            placeholder="Busca productos, marcas o expertos..."
-            className="focus:ring-primary w-full rounded-lg border-none bg-slate-100 py-2 pr-4 pl-10 text-sm transition-all focus:ring-2 dark:bg-slate-800"
-          />
+        <div className="lg:min-w-0 lg:flex-1 lg:max-w-md">
+          <NavSearch />
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <SearchMobileTrigger />
           <DarkModeToggle />
           <NavUser />
           <Link
             href="/escribir-resena"
-            className="bg-primary shadow-primary/20 flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-blue-600 active:translate-y-0 active:scale-95"
+            className="bg-primary shadow-primary/20 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-blue-600 active:translate-y-0 active:scale-95 md:px-5 md:py-2.5"
           >
             <span className="material-icons text-sm">edit</span>
-            Escribir Reseña
+            <span className="hidden md:inline">Escribir Reseña</span>
           </Link>
         </div>
       </div>

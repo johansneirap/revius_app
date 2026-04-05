@@ -4,6 +4,7 @@ import Logo from '@/components/Logo'
 import ReviewList from '@/components/reviews/ReviewList'
 import DarkModeToggle from '@/components/ui/DarkModeToggle'
 import NavUser from '@/components/ui/NavUser'
+import NavSearch, { SearchMobileTrigger } from '@/components/ui/NavSearch'
 import { createClient } from '@/lib/supabase/server'
 import type { ProductReviewFull } from '@/components/reviews/ReviewCard'
 
@@ -95,26 +96,14 @@ const [{ data: reviewsRaw }, { data: sourcesRaw }] = await Promise.all([
       {/* Nav Bar */}
       <nav className="dark:bg-background-dark/80 border-primary/10 sticky top-0 z-50 border-b bg-white/80 backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
+          <div className="flex h-16 items-center justify-between gap-3">
             <Logo />
-            <div className="mx-8 hidden max-w-lg flex-1 md:block">
-              <div className="group relative">
-                <span className="material-icons group-focus-within:text-primary absolute top-1/2 left-3 -translate-y-1/2 text-slate-400 transition-colors">
-                  search
-                </span>
-                <input
-                  type="text"
-                  placeholder="Buscar productos, marcas o categorías..."
-                  className="focus:border-primary/30 w-full rounded-full border-2 border-transparent bg-slate-100 py-2 pr-4 pl-10 text-sm transition-all outline-none focus:bg-white dark:bg-slate-800 dark:focus:bg-slate-900"
-                />
-              </div>
+            <div className="lg:min-w-0 lg:flex-1 lg:max-w-lg">
+              <NavSearch />
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <SearchMobileTrigger />
               <DarkModeToggle />
-              <button className="relative rounded-full p-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800">
-                <span className="material-icons">notifications</span>
-                <span className="bg-primary absolute top-2 right-2 h-2 w-2 rounded-full border-2 border-white dark:border-slate-900"></span>
-              </button>
               <NavUser />
             </div>
           </div>
@@ -158,12 +147,12 @@ const [{ data: reviewsRaw }, { data: sourcesRaw }] = await Promise.all([
         <div className="grid gap-12 lg:grid-cols-12">
           {/* Left Column: Visuals */}
           <div className="space-y-6 lg:col-span-7">
-            <div className="group relative aspect-square overflow-hidden rounded-3xl bg-slate-100 shadow-2xl dark:bg-slate-800">
+            <div className="group relative aspect-square overflow-hidden rounded-3xl bg-gray-50 shadow-2xl dark:bg-gray-900">
               {p.image_url ? (
                 <img
                   src={p.image_url as string}
                   alt={product.name as string}
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  className="absolute inset-0 h-full w-full object-contain p-4 transition-transform duration-700 group-hover:scale-105"
                   referrerPolicy="no-referrer"
                 />
               ) : (
