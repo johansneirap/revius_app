@@ -261,29 +261,29 @@ const rawText = content.text
 ## Backlog completo
 
 ### Inmediato — antes de traer usuarios
-- [ ] Cargar 100+ productos reales (resolver script ML o insertar manualmente)
+- [x] Cargar 100+ productos reales (resolver script ML o insertar manualmente)
 - [ ] Agregar `affiliate_url` y `affiliate_program` a `product_sources`
 - [ ] Activar links de afiliados ML en botones de compra
 - [ ] Configurar ambiente staging (dev branch → dev.revius.cl)
 
 ### UI/UX — funcionalidades pendientes
-- [ ] **Dark mode** — corregir bug, el toggle no persiste correctamente
-- [ ] **Navbar** — conectar todas las opciones:
-  - [ ] Categorías (Tecnología, Estilo de Vida, Hogar, Lo Mejor) → páginas de categoría
-  - [ ] Búsqueda — conectar buscador del navbar a resultados reales
+- [x] **Dark mode** — corregir bug, el toggle no persiste correctamente
+- [x] **Navbar** — conectar todas las opciones:
+  - [x] Categorías (Tecnología, Estilo de Vida, Hogar, Lo Mejor) → páginas de categoría
+  - [x] Búsqueda — conectar buscador del navbar a resultados reales
   - [ ] Notificaciones — ícono de campana funcional
 - [ ] **Búsqueda full-text** — página /buscar con resultados reales usando pg_trgm
 - [ ] **Tendencias** — página /tendencias con productos más revieweados y trending
 - [ ] **Cupones** — página /cupones con descuentos y códigos de tiendas asociadas
 - [ ] **Patrocinados** — feature de productos patrocinados en resultados de búsqueda
 - [ ] **Oferta Partner** — sidebar con ofertas de partners verificados (actualmente mock)
-- [ ] **Footer** — implementar páginas relevantes:
-  - [ ] /como-funciona
-  - [ ] /guia-de-resenas
-  - [ ] /terminos-de-servicio
-  - [ ] /privacidad
-  - [ ] /contacto
-  - [ ] /sobre-nosotros
+- [x] **Footer** — implementar páginas relevantes:
+  - [x] /como-funciona
+  - [x] /guia-de-resenas
+  - [x] /terminos-de-servicio
+  - [x] /privacidad
+  - [x] /contacto
+  - [x] /sobre-nosotros
 
 ### Features de producto (v2)
 - [ ] **Resumen inteligente de reviews** — cuando un producto tiene 10+ reviews, Anthropic genera un resumen narrativo con pros, contras y % de confiabilidad. Es el diferenciador clave de Revius.
