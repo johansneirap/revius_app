@@ -4,19 +4,28 @@ import Logo from '@/components/Logo'
 import DarkModeToggle from '@/components/ui/DarkModeToggle'
 import NavUser from '@/components/ui/NavUser'
 import NavSearch, { SearchMobileTrigger } from '@/components/ui/NavSearch'
+import NavDropdown from '@/components/ui/NavDropdown'
 import { createClient } from '@/lib/supabase/server'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
-type Product = {
+type HotProduct = {
   id: string
   slug: string
   name: string
-  brand: string | null
   image_url: string | null
   badge: string | null
   avg_score: number | null
-  review_count: number | null
+  categoria: string | null
+  min_price: number
+  num_tiendas: number
+}
+
+type SubcategoryCard = {
+  id: string
+  name: string
+  slug: string
+  total: number
 }
 
 type HomeReview = {
@@ -37,6 +46,25 @@ type Store = {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatCLP(price: number) {
+  return new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+    maximumFractionDigits: 0,
+  }).format(price)
+}
+
+const CATEGORY_ICONS: Record<string, string> = {
+  'Celulares': 'smartphone',
+  'Notebooks': 'laptop',
+  'Televisores': 'tv',
+  'Tablets': 'tablet',
+  'Audífonos y Headsets': 'headphones',
+  'Audio': 'speaker',
+  'Hogar': 'home',
+  'Estilo de Vida': 'spa',
+}
 
 const BADGE_COLORS: Record<string, string> = {
   alta_demanda: 'bg-red-500',
@@ -80,50 +108,93 @@ function credibilityBadge(score: number): string {
 export default async function Home() {
   const supabase = await createClient()
 
-  const { data: productsRaw } = await supabase
-    .from('products')
-    .select('id, slug, name, brand, image_url, badge, avg_score, review_count')
-    .not('badge', 'is', null)
-    .order('review_count', { ascending: false })
-    .limit(3)
-
-  const [{ data: reviewsRaw }, { data: storesRaw }] =
+  // Fetch paralelo: productos, tiendas, subcategorías
+  const [{ data: productsRaw }, { data: storesRaw }, { data: subcatsRaw }] =
     await Promise.all([
+      supabase
+        .from('products_with_category')
+        .select('id, name, slug, image_url, avg_score, badge, category_name')
+        .not('solotodo_id', 'is', null)
+        .order('avg_score', { ascending: false, nullsFirst: false })
+        .limit(24),
+      supabase
+        .from('stores')
+        .select('id, name, slug, avg_shipping_speed')
+        .eq('is_verified', true)
+        .limit(3),
+      supabase
+        .from('categories')
+        .select('id, name, slug')
+        .not('parent_id', 'is', null),
+    ])
+
+  const productIds = (productsRaw ?? []).map((p) => p.id)
+
+  // Fetch paralelo: precios, reseñas, conteo por categoría
+  const [{ data: sourcesRaw }, { data: reviewsRaw }, { data: productsByCat }] =
+    await Promise.all([
+      productIds.length > 0
+        ? supabase
+            .from('product_sources')
+            .select('product_id, price')
+            .in('product_id', productIds)
+            .gt('price', 0)
+        : Promise.resolve({ data: [] }),
       supabase
         .from('product_reviews_full')
         .select('author_name, author_avatar, author_level, rating, body, credibility_score, product_id')
         .not('credibility_score', 'is', null)
         .order('credibility_score', { ascending: false })
         .limit(6),
-      supabase
-        .from('stores')
-        .select('id, name, slug, avg_shipping_speed')
-        .eq('is_verified', true)
-        .limit(3),
+      subcatsRaw && subcatsRaw.length > 0
+        ? supabase
+            .from('products')
+            .select('category_id')
+            .in('category_id', subcatsRaw.map((c) => c.id))
+        : Promise.resolve({ data: [] }),
     ])
 
-  const products = (productsRaw ?? []) as Product[]
-  const reviews = (reviewsRaw ?? []) as HomeReview[]
-  const stores = (storesRaw ?? []) as Store[]
-
-  // Precio mínimo por producto (una sola query para los 3)
-  const productIds = products.map((p) => p.id)
-  const minPriceMap: Record<string, number> = {}
-
-  if (productIds.length > 0) {
-    const { data: sourcesRaw } = await supabase
-      .from('product_sources')
-      .select('product_id, price')
-      .in('product_id', productIds)
-      .eq('in_stock', true)
-      .order('price', { ascending: true })
-
-    for (const src of (sourcesRaw ?? []) as { product_id: string; price: number }[]) {
-      if (!minPriceMap[src.product_id]) {
-        minPriceMap[src.product_id] = src.price
-      }
+  // Agregar precios por producto
+  const priceAgg = new Map<string, { min_price: number; num_tiendas: number }>()
+  for (const src of (sourcesRaw ?? []) as { product_id: string; price: number }[]) {
+    const existing = priceAgg.get(src.product_id)
+    if (!existing) {
+      priceAgg.set(src.product_id, { min_price: src.price, num_tiendas: 1 })
+    } else {
+      existing.num_tiendas++
+      if (src.price < existing.min_price) existing.min_price = src.price
     }
   }
+
+  // Productos hot: solo los que tienen precio, ordenados por num_tiendas desc
+  const hotProducts: HotProduct[] = (productsRaw ?? [])
+    .filter((p) => priceAgg.has(p.id))
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      image_url: p.image_url ?? null,
+      avg_score: p.avg_score ?? null,
+      badge: p.badge ?? null,
+      categoria: (p as Record<string, unknown>).category_name as string | null ?? null,
+      min_price: priceAgg.get(p.id)!.min_price,
+      num_tiendas: priceAgg.get(p.id)!.num_tiendas,
+    }))
+    .sort((a, b) => b.num_tiendas - a.num_tiendas || (b.avg_score ?? 0) - (a.avg_score ?? 0))
+    .slice(0, 6)
+
+  // Conteo de productos por subcategoría
+  const catCounts = new Map<string, number>()
+  for (const p of (productsByCat ?? []) as { category_id: string }[]) {
+    catCounts.set(p.category_id, (catCounts.get(p.category_id) ?? 0) + 1)
+  }
+  const subcategories: SubcategoryCard[] = (subcatsRaw ?? [])
+    .filter((c) => (catCounts.get(c.id) ?? 0) > 0)
+    .map((c) => ({ id: c.id, name: c.name, slug: c.slug, total: catCounts.get(c.id) ?? 0 }))
+    .sort((a, b) => b.total - a.total)
+
+  const reviews = (reviewsRaw ?? []) as HomeReview[]
+  const stores = (storesRaw ?? []) as Store[]
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -131,7 +202,8 @@ export default async function Home() {
       <main className="mx-auto max-w-7xl px-4 py-8">
         <div className="flex flex-col gap-8 lg:flex-row">
           <div className="flex-grow">
-            <HeroSection products={products} minPriceMap={minPriceMap} />
+            <HeroSection products={hotProducts} />
+            <CategoriesSection subcategories={subcategories} />
             <PromoBanner />
             <ReviewsSection reviews={reviews} />
           </div>
@@ -152,21 +224,32 @@ async function Header() {
         <div className="flex flex-shrink-0 items-center">
           <Logo />
         </div>
-        <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
-          <Link href="#" className="border-primary text-primary border-b-2 py-5">
+        <nav className="hidden items-center gap-1 text-sm font-medium md:flex">
+          <Link href="/" className="border-primary text-primary border-b-2 px-2 py-5">
             Inicio
           </Link>
-          <Link href="#" className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400">
-            Tecnología
-          </Link>
-          <Link href="#" className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400">
-            Estilo de Vida
-          </Link>
-          <Link href="#" className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400">
+          <NavDropdown
+            label="Tecnología"
+            href="/categoria/tecnologia"
+            items={[
+              { label: 'Celulares', slug: 'celulares' },
+              { label: 'Notebooks', slug: 'notebooks' },
+              { label: 'Tablets', slug: 'tablets' },
+              { label: 'Televisores', slug: 'televisores' },
+            ]}
+          />
+          <NavDropdown
+            label="Audio"
+            href="/categoria/audio"
+            items={[
+              { label: 'Audífonos y Headsets', slug: 'audifonos-y-headsets' },
+            ]}
+          />
+          <Link href="/categoria/hogar" className="hover:text-primary px-2 py-5 text-slate-600 transition-colors dark:text-slate-400">
             Hogar
           </Link>
-          <Link href="#" className="hover:text-primary text-slate-600 transition-colors dark:text-slate-400">
-            Lo Mejor
+          <Link href="/categoria/estilo-vida" className="hover:text-primary px-2 py-5 text-slate-600 transition-colors dark:text-slate-400">
+            Estilo de Vida
           </Link>
         </nav>
         <div className="lg:min-w-0 lg:flex-1 lg:max-w-md">
@@ -191,13 +274,7 @@ async function Header() {
 
 // ─── HeroSection ──────────────────────────────────────────────────────────────
 
-function HeroSection({
-  products,
-  minPriceMap,
-}: {
-  products: Product[]
-  minPriceMap: Record<string, number>
-}) {
+function HeroSection({ products }: { products: HotProduct[] }) {
   return (
     <section className="mb-12">
       <div className="mb-6 flex items-center justify-between">
@@ -206,23 +283,22 @@ function HeroSection({
           <h2 className="text-2xl font-bold">Productos Hot de la Semana</h2>
         </div>
         <Link
-          href="#"
+          href="/buscar"
           className="text-primary flex items-center gap-1 text-sm font-semibold hover:underline"
         >
-          Ver Tendencias{' '}
+          Ver todos
           <span className="material-icons text-sm">arrow_forward</span>
         </Link>
       </div>
       {products.length === 0 ? (
-        <p className="text-sm text-slate-400">No hay productos destacados aún.</p>
+        <div className="flex flex-col items-center gap-3 py-16 text-center">
+          <span className="material-icons text-5xl text-slate-300">inventory_2</span>
+          <p className="font-semibold text-slate-500">No hay productos disponibles aún</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
           {products.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              minPrice={minPriceMap[product.id] ?? null}
-            />
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
       )}
@@ -230,14 +306,7 @@ function HeroSection({
   )
 }
 
-function ProductCard({
-  product,
-  minPrice,
-}: {
-  product: Product
-  minPrice: number | null
-}) {
-  const rating = product.avg_score ?? 0
+function ProductCard({ product }: { product: HotProduct }) {
   const badge = product.badge ?? ''
   const color = badgeColor(badge)
   const label = badgeLabel(badge)
@@ -247,12 +316,12 @@ function ProductCard({
       href={`/producto/${product.slug}`}
       className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition-shadow hover:shadow-lg dark:border-slate-800 dark:bg-slate-900"
     >
-      <div className="relative h-48 bg-slate-100 dark:bg-slate-800">
+      <div className="relative h-48 bg-slate-50 dark:bg-slate-800">
         {product.image_url ? (
           <img
             src={product.image_url}
             alt={product.name}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-contain p-4"
             referrerPolicy="no-referrer"
           />
         ) : (
@@ -263,42 +332,82 @@ function ProductCard({
           </div>
         )}
         {badge && (
-          <div
-            className={`absolute top-3 left-3 rounded px-2 py-1 text-[10px] font-bold tracking-wider text-white uppercase ${color}`}
-          >
+          <div className={`absolute top-3 left-3 rounded px-2 py-1 text-[10px] font-bold tracking-wider text-white uppercase ${color}`}>
             {label}
+          </div>
+        )}
+        {product.num_tiendas > 1 && (
+          <div className="absolute top-3 right-3 rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-bold text-slate-600 shadow dark:bg-slate-900/90 dark:text-slate-300">
+            {product.num_tiendas} tiendas
           </div>
         )}
       </div>
       <div className="p-5">
-        <div className="mb-2 flex items-start justify-between">
-          <h3 className="group-hover:text-primary text-lg font-bold transition-colors">
+        <div className="mb-1">
+          {product.categoria && (
+            <p className="mb-1 text-[11px] font-medium text-slate-400">{product.categoria}</p>
+          )}
+          <h3 className="group-hover:text-primary line-clamp-2 text-sm font-bold leading-snug transition-colors">
             {product.name}
           </h3>
-          <span className="flex items-center rounded bg-green-100 px-2 py-1 text-xs font-bold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-            {rating > 0 ? rating.toFixed(1) : '—'} ★
-          </span>
         </div>
-        <p className="mb-4 line-clamp-2 text-sm text-slate-500">
-          {product.brand ?? ''}
-        </p>
-        <div className="flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
+        <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
           <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase">
-              Mejor Precio
-            </p>
-            <p className="text-primary text-xl font-bold">
-              {minPrice !== null
-                ? `$${minPrice.toLocaleString('es-CL')}`
-                : 'Sin precio'}
-            </p>
+            <p className="text-xs font-semibold text-slate-400 uppercase">Mejor Precio</p>
+            <p className="text-primary text-xl font-bold">{formatCLP(product.min_price)}</p>
           </div>
-          <span className="bg-primary rounded px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700">
-            Ver Ofertas
-          </span>
+          {product.avg_score !== null ? (
+            <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+              <span className="material-icons text-[12px]">star</span>
+              {product.avg_score.toFixed(1)}
+            </span>
+          ) : (
+            <span className="bg-primary rounded px-4 py-2 text-sm font-semibold text-white">
+              Ver Oferta
+            </span>
+          )}
         </div>
       </div>
     </Link>
+  )
+}
+
+// ─── CategoriesSection ────────────────────────────────────────────────────────
+
+function CategoriesSection({ subcategories }: { subcategories: SubcategoryCard[] }) {
+  if (subcategories.length === 0) return null
+
+  return (
+    <section className="mb-12">
+      <div className="mb-6 flex items-center gap-2">
+        <span className="material-icons text-primary">grid_view</span>
+        <h2 className="text-2xl font-bold">Explora por Categoría</h2>
+      </div>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {subcategories.map((cat) => {
+          const icon = CATEGORY_ICONS[cat.name] ?? 'category'
+          return (
+            <Link
+              key={cat.id}
+              href={`/categoria/${cat.slug}`}
+              className="group flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-white p-5 text-center transition-all hover:border-primary/30 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-white">
+                <span className="material-icons text-2xl">{icon}</span>
+              </div>
+              <div>
+                <p className="text-sm font-bold leading-tight text-slate-900 dark:text-slate-100">
+                  {cat.name}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  {cat.total} producto{cat.total !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
@@ -306,22 +415,22 @@ function ProductCard({
 
 function PromoBanner() {
   return (
-    <div className="border-primary/20 bg-primary/10 relative mb-12 flex h-40 items-center overflow-hidden rounded-xl border px-12">
-      <div className="z-10 max-w-md">
-        <h2 className="mb-2 text-2xl font-bold text-slate-900 dark:text-white">
+    <div className="border-primary/20 bg-primary/10 relative mb-12 flex items-center overflow-hidden rounded-xl border px-6 py-8 sm:px-12 sm:py-10">
+      <div className="z-10 w-full max-w-md">
+        <h2 className="mb-2 text-xl font-bold text-slate-900 sm:text-2xl dark:text-white">
           Evento de Actualización Tech
         </h2>
-        <p className="mb-4 text-slate-600 dark:text-slate-300">
+        <p className="mb-4 text-sm text-slate-600 sm:text-base dark:text-slate-300">
           Cupones exclusivos para nuestra comunidad en más de 500 gadgets top.
         </p>
-        <button className="bg-primary rounded-lg px-6 py-2 font-bold text-white transition-all hover:shadow-lg">
+        <button className="bg-primary rounded-lg px-6 py-2 text-sm font-bold text-white transition-all hover:shadow-lg sm:text-base">
           Obtener Cupones
         </button>
       </div>
       <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-1/2 opacity-20">
         <div className="from-primary h-full w-full bg-gradient-to-l to-transparent"></div>
       </div>
-      <span className="material-icons text-primary absolute right-12 text-9xl opacity-10">
+      <span className="material-icons text-primary absolute right-6 text-7xl opacity-10 sm:right-12 sm:text-9xl">
         local_offer
       </span>
     </div>
@@ -350,7 +459,23 @@ function ReviewsSection({ reviews }: { reviews: HomeReview[] }) {
         </div>
       </div>
       {reviews.length === 0 ? (
-        <p className="text-sm text-slate-400">No hay reseñas destacadas aún.</p>
+        <div className="flex flex-col items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 py-14 text-center dark:border-slate-800 dark:bg-slate-900/50">
+          <span className="material-icons text-5xl text-slate-300">rate_review</span>
+          <div>
+            <p className="font-semibold text-slate-600 dark:text-slate-300">
+              Sé el primero en reseñar estos productos
+            </p>
+            <p className="mt-1 text-sm text-slate-400">
+              Comparte tu experiencia y ayuda a otros consumidores chilenos.
+            </p>
+          </div>
+          <Link
+            href="/escribir-resena"
+            className="bg-primary mt-2 rounded-xl px-6 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+          >
+            Escribir Reseña
+          </Link>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {reviews.map((review, i) => (
@@ -595,30 +720,30 @@ function Footer() {
             </div>
           </div>
           <div>
-            <h5 className="mb-4 text-sm font-bold">Autoridad</h5>
+            <h5 className="mb-4 text-sm font-bold">Plataforma</h5>
             <ul className="space-y-2 text-sm text-slate-500">
-              <FooterLink href="#">Cómo Probamos</FooterLink>
-              <FooterLink href="#">Proceso de Laboratorio</FooterLink>
-              <FooterLink href="#">Guía de Reseñas</FooterLink>
-              <FooterLink href="#">Nuestros Expertos</FooterLink>
+              <FooterLink href="/como-funciona">Cómo Funciona</FooterLink>
+              <FooterLink href="/metodologia-credibilidad">Metodología</FooterLink>
+              <FooterLink href="/preguntas-frecuentes">Preguntas Frecuentes</FooterLink>
+              <FooterLink href="/escribir-resena">Escribir Reseña</FooterLink>
             </ul>
           </div>
           <div>
-            <h5 className="mb-4 text-sm font-bold">Recursos</h5>
+            <h5 className="mb-4 text-sm font-bold">Explorar</h5>
             <ul className="space-y-2 text-sm text-slate-500">
-              <FooterLink href="#">Guías de Compra</FooterLink>
-              <FooterLink href="#">Rastreador de Ofertas</FooterLink>
-              <FooterLink href="#">Comparador de Precios</FooterLink>
-              <FooterLink href="#">Foros</FooterLink>
+              <FooterLink href="/categoria/tecnologia">Tecnología</FooterLink>
+              <FooterLink href="/categoria/audio">Audio</FooterLink>
+              <FooterLink href="/categoria/hogar">Hogar</FooterLink>
+              <FooterLink href="/buscar">Buscador</FooterLink>
             </ul>
           </div>
           <div>
             <h5 className="mb-4 text-sm font-bold">Acerca de</h5>
             <ul className="space-y-2 text-sm text-slate-500">
-              <FooterLink href="#">Contacto</FooterLink>
-              <FooterLink href="#">Prensa</FooterLink>
-              <FooterLink href="#">Carreras</FooterLink>
-              <FooterLink href="#">Asociaciones</FooterLink>
+              <FooterLink href="/sobre-nosotros">Sobre Nosotros</FooterLink>
+              <FooterLink href="/contacto">Contacto</FooterLink>
+              <FooterLink href="/terminos-servicio">Términos de Servicio</FooterLink>
+              <FooterLink href="/politica-privacidad">Privacidad</FooterLink>
             </ul>
           </div>
         </div>
@@ -629,14 +754,14 @@ function Footer() {
             comisión al hacer clic en enlaces de nuestro sitio.
           </p>
           <div className="flex gap-6 text-[10px] font-bold tracking-widest text-slate-400 uppercase">
-            <Link href="#" className="hover:text-primary">
+            <Link href="/politica-privacidad" className="hover:text-primary">
               Política de Privacidad
             </Link>
-            <Link href="#" className="hover:text-primary">
+            <Link href="/terminos-servicio" className="hover:text-primary">
               Términos de Servicio
             </Link>
-            <Link href="#" className="hover:text-primary">
-              Cookies
+            <Link href="/contacto" className="hover:text-primary">
+              Contacto
             </Link>
           </div>
         </div>

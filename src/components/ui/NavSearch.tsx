@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
@@ -152,8 +153,9 @@ export default function NavSearch({ initialQuery }: { initialQuery?: string }) {
         </kbd>
       </button>
 
-      {/* Overlay */}
-      {isOpen && (
+      {/* Overlay — renderizado en document.body via portal para evitar que
+          el backdrop-filter del navbar cree un containing block para position:fixed */}
+      {isOpen && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[100] flex flex-col items-center px-4 pt-[10vh]">
           {/* Backdrop */}
           <div
@@ -300,7 +302,8 @@ export default function NavSearch({ initialQuery }: { initialQuery?: string }) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   )
